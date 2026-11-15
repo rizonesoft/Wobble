@@ -11,39 +11,52 @@ public sealed partial class OpticalDrive
         bool msf = (cdb[1] & 0x02) != 0;
         int format = cdb[2] & 0x0F;
         if (format == 0) format = cdb[9] >> 6;       // older hosts put the format in the control byte
-        long leadOut = Current!.BlockCount;
+        var tracks = Current!.Tracks;
+        long leadOut = Current.BlockCount;
+        byte firstTrack = (byte)tracks[0].Number, lastTrack = (byte)tracks[^1].Number;
         byte[] data;
 
         switch (format)
         {
-            case 0:                                  // formatted TOC: track 1 and the lead-out
+            case 0:                                  // formatted TOC: tracks from the starting track, then the lead-out
                 int from = cdb[6];
-                if (from > 1 && from != 0xAA) return ScsiResult.Check(Sense.InvalidFieldInCdb);
-                bool withTrack = from <= 1;
-                data = new byte[4 + (withTrack ? 16 : 8)];
-                data[2] = 1;                         // first track
-                data[3] = 1;                         // last track
+                if (from > lastTrack && from != 0xAA) return ScsiResult.Check(Sense.InvalidFieldInCdb);
+                var listed = from == 0xAA ? [] : tracks.Where(t => t.Number >= from).ToArray();
+                data = new byte[4 + 8 * (listed.Length + 1)];
+                data[2] = firstTrack;
+                data[3] = lastTrack;
                 int at = 4;
-                if (withTrack) { PutTocEntry(data, at, 1, 0, msf); at += 8; }
-                PutTocEntry(data, at, 0xAA, leadOut, msf);
+                foreach (var t in listed)
+                {
+                    PutTocEntry(data, at, (byte)t.Number, t.Control, t.Start, msf);
+                    at += 8;
+                }
+                PutTocEntry(data, at, 0xAA, tracks[^1].Control, leadOut, msf);
                 break;
 
-            case 1:                                  // session information
+            case 1:                                  // session information: first track of the last session
                 data = new byte[12];
                 data[2] = 1;                         // first session
                 data[3] = 1;                         // last session
-                PutTocEntry(data, 4, 1, 0, msf);     // first track of the last session
+                PutTocEntry(data, 4, firstTrack, tracks[0].Control, tracks[0].Start, msf);
                 break;
 
             case 2:                                  // full TOC: always minute, second, frame
-                data = new byte[4 + 4 * 11];
+                data = new byte[4 + 11 * (3 + tracks.Count)];
                 data[2] = 1;
                 data[3] = 1;
+                byte discType = tracks.Any(t => t.Mode == TrackMode.Mode2) ? (byte)0x20 : (byte)0x00;
                 var end = Msf(leadOut);
-                PutFullTocEntry(data, 4, 0xA0, 1, 0, 0);            // first track number, disc type CD-ROM
-                PutFullTocEntry(data, 15, 0xA1, 1, 0, 0);           // last track number
-                PutFullTocEntry(data, 26, 0xA2, end.M, end.S, end.F);
-                PutFullTocEntry(data, 37, 0x01, 0, 2, 0);           // track 1 starts at 00:02:00
+                PutFullTocEntry(data, 4, tracks[0].Control, 0xA0, firstTrack, discType, 0);
+                PutFullTocEntry(data, 15, tracks[^1].Control, 0xA1, lastTrack, 0, 0);
+                PutFullTocEntry(data, 26, tracks[^1].Control, 0xA2, end.M, end.S, end.F);
+                at = 37;
+                foreach (var t in tracks)
+                {
+                    var start = Msf(t.Start);
+                    PutFullTocEntry(data, at, t.Control, (byte)t.Number, start.M, start.S, start.F);
+                    at += 11;
+                }
                 break;
 
             default:                                 // PMA, ATIP and CD-TEXT do not exist on this disc
@@ -55,9 +68,9 @@ public sealed partial class OpticalDrive
         return ScsiResult.Good(Fit(data, U16(cdb, 7)));
     }
 
-    private static void PutTocEntry(Span<byte> data, int at, byte track, long lba, bool msf)
+    private static void PutTocEntry(Span<byte> data, int at, byte track, byte control, long lba, bool msf)
     {
-        data[at + 1] = 0x14;                         // ADR 1, data track
+        data[at + 1] = (byte)(0x10 | control);       // ADR 1
         data[at + 2] = track;
         if (msf)
         {
@@ -67,10 +80,10 @@ public sealed partial class OpticalDrive
         else Put32(data, at + 4, lba);
     }
 
-    private static void PutFullTocEntry(Span<byte> data, int at, byte point, byte pmin, byte psec, byte pframe)
+    private static void PutFullTocEntry(Span<byte> data, int at, byte control, byte point, byte pmin, byte psec, byte pframe)
     {
         data[at] = 1;                                // session
-        data[at + 1] = 0x14;
+        data[at + 1] = (byte)(0x10 | control);
         data[at + 3] = point;
         data[at + 8] = pmin; data[at + 9] = psec; data[at + 10] = pframe;
     }
@@ -80,14 +93,16 @@ public sealed partial class OpticalDrive
     private ScsiResult ReadDiscInformation(ReadOnlySpan<byte> cdb)
     {
         if ((cdb[1] & 0x07) != 0) return ScsiResult.Check(Sense.InvalidFieldInCdb);
+        var tracks = Current!.Tracks;
         var data = new byte[34];
         Put16(data, 0, 32);
         data[2] = 0x0E;                              // not erasable, last session complete, disc complete
-        data[3] = 1;                                 // first track
+        data[3] = (byte)tracks[0].Number;            // first track
         data[4] = 1;                                 // sessions
-        data[5] = 1;                                 // first track in last session
-        data[6] = 1;                                 // last track in last session
+        data[5] = (byte)tracks[0].Number;            // first track in last session
+        data[6] = (byte)tracks[^1].Number;           // last track in last session
         data[7] = 0x20;                              // unrestricted use
+        data[8] = tracks.Any(t => t.Mode == TrackMode.Mode2) ? (byte)0x20 : (byte)0x00;   // CD-ROM XA, or CD-DA and CD-ROM
         Put32(data, 16, 0xFFFFFFFF);                 // no lead-in to append at
         Put32(data, 20, 0xFFFFFFFF);                 // no lead-out to extend
         return ScsiResult.Good(Fit(data, U16(cdb, 7)));
@@ -95,20 +110,35 @@ public sealed partial class OpticalDrive
 
     private ScsiResult ReadTrackInformation(ReadOnlySpan<byte> cdb)
     {
+        var disc = Current!;
         uint address = U32(cdb, 2);
+        Track? track;
         switch (cdb[1] & 0x03)
         {
-            case 0: if (address >= Current!.BlockCount) return ScsiResult.Check(Sense.LbaOutOfRange); break;
-            case 1 or 2: if (address != 1) return ScsiResult.Check(Sense.InvalidFieldInCdb); break;
-            default: return ScsiResult.Check(Sense.InvalidFieldInCdb);
+            case 0:
+                if (address >= disc.BlockCount) return ScsiResult.Check(Sense.LbaOutOfRange);
+                track = disc.TrackAt(address);
+                break;
+            case 1:
+                track = disc.Tracks.FirstOrDefault(t => t.Number == address);
+                break;
+            case 2:
+                track = address == 1 ? disc.Tracks[0] : null;
+                break;
+            default:
+                track = null;
+                break;
         }
+        if (track is null) return ScsiResult.Check(Sense.InvalidFieldInCdb);
+
         var data = new byte[36];
         Put16(data, 0, 34);
-        data[2] = 1;                                 // track
+        data[2] = (byte)track.Number;
         data[3] = 1;                                 // session
-        data[5] = 0x04;                              // data track, recorded uninterrupted
-        data[6] = 0x01;                              // Mode 1
-        Put32(data, 24, Current!.BlockCount);        // track size
+        data[5] = track.Control;                     // track mode
+        data[6] = track.Mode switch { TrackMode.Mode1 => 0x01, TrackMode.Mode2 => 0x02, _ => 0x0F };
+        Put32(data, 8, track.Start);
+        Put32(data, 24, track.Length);
         return ScsiResult.Good(Fit(data, U16(cdb, 7)));
     }
 

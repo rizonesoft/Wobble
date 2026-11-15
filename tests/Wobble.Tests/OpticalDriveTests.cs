@@ -213,14 +213,28 @@ public class OpticalDriveTests
     }
 
     [Fact]
-    public void ReadCd_ReturnsUserData_AndRefusesSubchannelRequests()
+    public void ReadCd_OnACookedImage_ReturnsUserData_OrTheWholeGeneratedSector()
     {
         var drive = DriveWith(MediaKind.CdRom);
-        byte[] userData = [0xBE, 0, 0, 0, 0, 5, 0, 0, 1, 0x10, 0, 0];
 
-        Assert.All(drive.Execute(userData, []).DataIn, b => Assert.Equal(5, b));
-        userData[10] = 0x02;                                                    // also formatted Q subchannel
-        Assert.Equal(Sense.InvalidFieldInCdb, drive.Execute(userData, []).Sense);
+        var user = drive.Execute([0xBE, 0, 0, 0, 0, 5, 0, 0, 1, 0x10, 0, 0], []).DataIn;
+        var raw = drive.Execute([0xBE, 0, 0, 0, 0, 5, 0, 0, 1, 0xF8, 0, 0], []).DataIn;
+
+        Assert.Equal(2048, user.Length);
+        Assert.All(user, b => Assert.Equal(5, b));
+        Assert.Equal(2352, raw.Length);
+        Assert.Equal(new byte[] { 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x02, 0x05, 0x01 }, raw[..16]);
+        Assert.Equal(user, raw[16..2064]);
+    }
+
+    [Fact]
+    public void ReadCd_RefusesWhatIsNotModelled()
+    {
+        var drive = DriveWith(MediaKind.CdRom);
+
+        Assert.Equal(Sense.InvalidFieldInCdb, drive.Execute([0xBE, 0, 0, 0, 0, 5, 0, 0, 1, 0x12, 0, 0], []).Sense);   // C2 pointers
+        Assert.Equal(Sense.InvalidFieldInCdb, drive.Execute([0xBE, 0, 0, 0, 0, 5, 0, 0, 1, 0x10, 4, 0], []).Sense);   // corrected R to W
+        Assert.Equal(Sense.IncompatibleMedium, DriveWith(MediaKind.DvdRom).Execute([0xBE, 0, 0, 0, 0, 5, 0, 0, 1, 0x10, 0, 0], []).Sense);
     }
 
     [Fact]

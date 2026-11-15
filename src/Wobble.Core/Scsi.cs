@@ -18,6 +18,7 @@ public readonly record struct Sense(byte Key, byte Asc, byte Ascq)
     public static readonly Sense LunNotSupported = new(0x05, 0x25, 0x00);
     public static readonly Sense IncompatibleMedium = new(0x05, 0x30, 0x02);
     public static readonly Sense SavingNotSupported = new(0x05, 0x39, 0x00);
+    public static readonly Sense IllegalModeForThisTrack = new(0x05, 0x64, 0x00);
     public static readonly Sense RemovalPrevented = new(0x05, 0x53, 0x02);
     public static readonly Sense MediumMayHaveChanged = new(0x06, 0x28, 0x00);
     public static readonly Sense PowerOnReset = new(0x06, 0x29, 0x00);

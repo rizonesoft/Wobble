@@ -30,10 +30,10 @@ Out of scope: AACS, CSS and BD+, and physical-layer fidelity beyond a simple mod
 Requires the .NET 11 SDK.
 
 ```powershell
-dotnet run --project src/Wobble.Host -- --iso C:\path\disc.iso
+dotnet run --project src/Wobble.Host -- --image C:\path\disc.iso
 ```
 
-Options: `--iso <path>`, `--media cd|dvd` (default: by image size), `--port 3260`, `--control-port 3261`, `--bind 127.0.0.1`, `--iqn iqn.2026-11.test.wobble:drive0`.
+Options: `--image <path>` (an ISO, or a cue sheet with its track files), `--media cd|dvd` for an ISO (default: by size), `--port 3260`, `--control-port 3261`, `--bind 127.0.0.1`, `--iqn iqn.2026-11.test.wobble:drive0`.
 
 Then, once per boot, from an elevated PowerShell while Wobble is running:
 

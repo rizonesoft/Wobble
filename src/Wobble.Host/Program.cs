@@ -3,14 +3,14 @@ using Wobble.Core;
 using Wobble.Iscsi;
 
 // wobble: serves one emulated optical drive over iSCSI, with a local HTTP control API for tests.
-//   wobble [--iso <path>] [--media cd|dvd] [--port 3260] [--control-port 3261] [--bind 127.0.0.1] [--iqn <name>]
+//   wobble [--image <path>] [--media cd|dvd] [--port 3260] [--control-port 3261] [--bind 127.0.0.1] [--iqn <name>]
 
 var options = new Dictionary<string, string>();
 for (int i = 0; i < args.Length; i += 2)
 {
     if (!args[i].StartsWith("--") || i + 1 >= args.Length)
     {
-        Console.Error.WriteLine($"Bad argument '{args[i]}'. Usage: wobble [--iso <path>] [--media cd|dvd] [--port 3260] [--control-port 3261] [--bind 127.0.0.1] [--iqn <name>]");
+        Console.Error.WriteLine($"Bad argument '{args[i]}'. Usage: wobble [--image <path>] [--media cd|dvd] [--port 3260] [--control-port 3261] [--bind 127.0.0.1] [--iqn <name>]");
         return 2;
     }
     options[args[i][2..]] = args[i + 1];
@@ -22,7 +22,7 @@ int controlPort = int.Parse(options.GetValueOrDefault("control-port", "3261"));
 string iqn = options.GetValueOrDefault("iqn", "iqn.2026-11.test.wobble:drive0");
 
 using var drive = new OpticalDrive();
-if (options.TryGetValue("iso", out var iso)) drive.InsertMedia(Open(iso, options.GetValueOrDefault("media")));
+if (options.TryGetValue("image", out var image)) drive.InsertMedia(Open(image, options.GetValueOrDefault("media")));
 
 await using var target = new IscsiTarget(drive, iqn, new IPEndPoint(IPAddress.Parse(bind), port));
 target.Start();
@@ -67,7 +67,8 @@ Console.WriteLine($"wobble: iSCSI target {iqn} on {target.LocalEndpoint}, contro
 await app.RunAsync();
 return 0;
 
+// An image is a cue sheet (.cue) or a cooked image such as an ISO; kind only applies to cooked images.
 static Media Open(string path, string? kind) =>
-    Media.FromImage(new FileDiscImage(path), kind switch { "cd" => MediaKind.CdRom, "dvd" => MediaKind.DvdRom, _ => null });
+    Media.Open(path, kind switch { "cd" => MediaKind.CdRom, "dvd" => MediaKind.DvdRom, _ => null });
 
 internal sealed record MediaRequest(string? Image, string? Kind);

@@ -101,7 +101,7 @@ public sealed partial class OpticalDrive(DriveIdentity? identity = null, TimePro
             return ScsiResult.Check(pending);
         }
 
-        bool needsMedia = op is 0x25 or 0x28 or 0xA8 or 0x2B or 0x2F or 0x43 or 0x51 or 0x52 or 0xAD or 0xBE;
+        bool needsMedia = op is 0x25 or 0x28 or 0xA8 or 0x2B or 0x2F or 0x43 or 0x51 or 0x52 or 0xAD or 0xB9 or 0xBE;
         if (needsMedia && Current is null)
             return ScsiResult.Check(trayOpen ? Sense.NoMediumTrayOpen : Sense.NoMediumTrayClosed);
 
@@ -132,6 +132,7 @@ public sealed partial class OpticalDrive(DriveIdentity? identity = null, TimePro
             0xA8 => Read(U32(cdb, 2), U32(cdb, 6)),
             0xAC => GetPerformance(cdb),
             0xAD => ReadDiscStructure(cdb),
+            0xB9 => ReadCdMsf(cdb),
             0xBB => SetCdSpeed(cdb),
             0xBD => MechanismStatus(cdb),
             0xBE => ReadCd(cdb),
@@ -237,19 +238,98 @@ public sealed partial class OpticalDrive(DriveIdentity? identity = null, TimePro
         if (!InRange(lba, count)) return ScsiResult.Check(Sense.LbaOutOfRange);
         if (count > MaxTransferBlocks) return ScsiResult.Check(Sense.InvalidFieldInCdb);
         var data = new byte[count * BlockSize];
-        if (count > 0) Current!.Image.Read(lba, data);
+        for (int i = 0; i < count; i++)
+        {
+            // READ returns user data, which an audio sector does not have.
+            if (!Current!.TryReadUserData(lba + i, data.AsSpan(i * BlockSize, BlockSize)))
+                return ScsiResult.Check(Sense.IllegalModeForThisTrack);
+        }
         return ScsiResult.Good(data);
     }
 
-    private ScsiResult ReadCd(ReadOnlySpan<byte> cdb)
+    private ScsiResult ReadCd(ReadOnlySpan<byte> cdb) =>
+        ReadCdSectors(U32(cdb, 2), U24(cdb, 6), (cdb[1] >> 2) & 0x07, cdb[9], cdb[10]);
+
+    private ScsiResult ReadCdMsf(ReadOnlySpan<byte> cdb)
     {
-        if (Current!.Kind != MediaKind.CdRom) return ScsiResult.Check(Sense.IncompatibleMedium);
-        int sectorType = (cdb[1] >> 2) & 0x07;
-        // The disc is one Mode 1 data track, and only its 2048 bytes of user data are modelled.
-        // Byte 10 selects subchannel data, which is not modelled either.
-        if (sectorType is not (0 or 2) || cdb[9] != 0x10 || (cdb[10] & 0x07) != 0)
+        long start = (cdb[3] * 60 + cdb[4]) * 75 + cdb[5] - 150;
+        long end = (cdb[6] * 60 + cdb[7]) * 75 + cdb[8] - 150;        // exclusive
+        if (end < start) return ScsiResult.Check(Sense.InvalidFieldInCdb);
+        return ReadCdSectors(start, end - start, (cdb[1] >> 2) & 0x07, cdb[9], cdb[10]);
+    }
+
+    /// <summary>
+    /// READ CD and READ CD MSF: any selection of the fields of a raw sector, optionally followed by
+    /// subchannel data, for each sector in turn.
+    /// </summary>
+    private ScsiResult ReadCdSectors(long lba, long count, int expectedType, byte fields, byte subchannelSelection)
+    {
+        var disc = Current!;
+        if (disc.Kind != MediaKind.CdRom) return ScsiResult.Check(Sense.IncompatibleMedium);
+        if (lba < 0 || lba + count > disc.BlockCount) return ScsiResult.Check(Sense.LbaOutOfRange);
+        // C2 error pointers and corrected R to W subchannel are not modelled.
+        int subchannel = subchannelSelection & 0x07;
+        if (count > MaxTransferBlocks || (fields & 0x06) != 0 || subchannel > 2 || expectedType > 5)
             return ScsiResult.Check(Sense.InvalidFieldInCdb);
-        return Read(U32(cdb, 2), U24(cdb, 6));
+
+        using var output = new MemoryStream();
+        Span<byte> raw = stackalloc byte[SectorCodec.RawSize];
+        Span<byte> q = stackalloc byte[12];
+        Span<byte> sub = stackalloc byte[96];
+
+        for (long sector = lba; sector < lba + count; sector++)
+        {
+            var track = disc.TrackAt(sector);
+            disc.ReadRaw(sector, raw);
+
+            // Sector type as the CDB numbers it: 1 CD-DA, 2 Mode 1, 4 Mode 2 Form 1, 5 Mode 2 Form 2.
+            int type = track.Mode switch
+            {
+                TrackMode.Audio => 1,
+                TrackMode.Mode1 => 2,
+                _ => (raw[18] & 0x20) != 0 ? 5 : 4,
+            };
+            if (expectedType != 0 && expectedType != type) return ScsiResult.Check(Sense.IllegalModeForThisTrack);
+
+            if (type == 1)
+            {
+                if ((fields & 0x10) != 0) output.Write(raw);                 // an audio sector is all user data
+            }
+            else
+            {
+                var (user, parity) = type switch
+                {
+                    2 => (16..2064, 2064..2352),
+                    4 => (24..2072, 2072..2352),
+                    _ => (24..2348, 2348..2352),
+                };
+                if ((fields & 0x80) != 0) output.Write(raw[..12]);            // sync
+                if ((fields & 0x20) != 0) output.Write(raw[12..16]);          // header
+                if ((fields & 0x40) != 0 && type >= 4) output.Write(raw[16..24]);   // subheader
+                if ((fields & 0x10) != 0) output.Write(raw[user]);
+                if ((fields & 0x08) != 0) output.Write(raw[parity]);          // EDC and ECC
+            }
+
+            if (subchannel == 0) continue;
+            bool pause = sector < track.Start;
+            SectorCodec.WriteQ(q, track, sector);
+            if (subchannel == 2)
+            {
+                // Formatted Q: the 12 bytes of Q, three unused bytes, then the P flag.
+                sub[..16].Clear();
+                q.CopyTo(sub);
+                sub[15] = (byte)(pause ? 0x80 : 0);
+                output.Write(sub[..16]);
+            }
+            else
+            {
+                // Raw P to W: one byte per channel bit position, P in bit 7 and Q in bit 6.
+                for (int i = 0; i < 96; i++)
+                    sub[i] = (byte)((pause ? 0x80 : 0) | ((q[i / 8] >> (7 - i % 8) & 1) != 0 ? 0x40 : 0));
+                output.Write(sub);
+            }
+        }
+        return ScsiResult.Good(output.ToArray());
     }
 
     private ScsiResult SetCdSpeed(ReadOnlySpan<byte> cdb)

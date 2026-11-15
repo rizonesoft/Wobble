@@ -39,7 +39,7 @@ public sealed class EmulatorProcess : IDisposable
         start.ArgumentList.Add(controlPort.ToString());
         if (image is not null)
         {
-            start.ArgumentList.Add("--iso");
+            start.ArgumentList.Add("--image");
             start.ArgumentList.Add(image);
         }
 
