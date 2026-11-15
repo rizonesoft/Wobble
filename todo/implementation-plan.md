@@ -112,12 +112,12 @@ Sections: 10 | Checklist items: 64
 
 ### Phase 7: Control interface and release
 
-Sections: 22 | Checklist items: 130
+Sections: 22 | Checklist items: 131
 
 | Status | Reference   | Deliverable                                          | Needs                         | Items |
 | ------ | ----------- | ---------------------------------------------------- | ----------------------------- | ----- |
 | [ ]    | D06 T01 §1  | Control API additions the interface needs            | none                          | 6     |
-| [ ]    | D06 T01 §2  | App project, Groove theme and headless tests         | none                          | 8     |
+| [ ]    | D06 T01 §2  | App project, Groove theme and UI tests               | none                          | 9     |
 | [ ]    | D06 T01 §3  | Emulator session, title bar and status bar           | none                          | 6     |
 | [ ]    | D06 T01 §4  | Settings dialog and stored settings                  | none                          | 6     |
 | [ ]    | D06 T01 §5  | Disc column: figure, state, facts and tracks         | none                          | 7     |
@@ -149,4 +149,4 @@ Sections: 1 | Checklist items: 5
 
 Progress: 0/78 verified sections, 5 ready to run now.
 
-Checklist: 0/488 items completed (includes Commit items).
+Checklist: 0/489 items completed (includes Commit items).
