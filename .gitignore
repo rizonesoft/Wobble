@@ -485,3 +485,8 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# Wobble: local run state, the TODO cache and published builds
+build/
+*.replaced
+
