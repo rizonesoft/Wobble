@@ -11,7 +11,7 @@ Out of scope: AACS, CSS and BD+, and physical-layer fidelity beyond a simple mod
 - Transport proven (2026-11-15): Windows 11 accepts an iSCSI optical drive. See [the proof](docs/proof/2026-11-15-iscsi-optical-drive.md).
 - Design: [docs/specs/2026-11-15-wobble-design.md](docs/specs/2026-11-15-wobble-design.md).
 - Step 1, read support: done. Wobble serves an ISO as a finalised CD-ROM or DVD-ROM data disc; Windows gives it a drive letter, mounts and reads it, and IMAPI2 lists the drive.
-- Step 2 (write support) and step 3 (profiles and the capture tool) are not started.
+- Next: the raw CD model, write support, fault injection, then profiles and the capture tool. See [the plan](docs/plans/2026-11-15-write-support.md).
 
 ## Layout
 

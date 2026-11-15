@@ -109,7 +109,7 @@ A Windows end-to-end test uses `Wobble.Testing`: start `wobble` as a child proce
 ## Build order
 
 1. **Read support.** iSCSI target, read-only MMC for CD and DVD data discs from an ISO, control API basics, trace. Done when Windows mounts and reads a disc served by Wobble and IMAPI2 lists the drive, repeating the proof without tgt.
-2. **Write support.** Blank and rewritable media, write modes, track and session state, close and finalise, IMAPI2 burn end to end, fault injection on the write path.
+2. **Raw CD model and write support.** CarbonCD, the first software under test, is a raw CD copier, so the disc model becomes raw 2352-byte sectors with subchannel before writing is added: raw reads, CD-R and CD-RW writing (track-at-once, cue sheet, RAW), then IMAPI2 data burning on CD and DVD, then fault injection. Slices are in [the plan](../plans/2026-11-15-write-support.md).
 3. **Profiles and capture.** `wobble-capture`, real drive and media profiles, trace recording and comparison, quirks.
 
 ## Verified during step 1 (2026-11-15)
