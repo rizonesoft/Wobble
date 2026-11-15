@@ -13,7 +13,7 @@ Date: 2026-11-15. Status: agreed starting point. Builds on [the iSCSI proof](../
 | Profile format | JSON files, with captured drive answers stored as hex strings. |
 | Fault injection | Declarative rule lists (JSON), loaded per test through the control API. |
 | Test control | A local HTTP JSON control API, wrapped by a `Wobble.Testing` library for xUnit. |
-| Interface | `Wobble.App`, an Avalonia desktop app for Windows and Linux, a client of the control API. Specified in [design/SPEC.md](../../design/SPEC.md); decided 2026-11-15. |
+| Interface | `Wobble.App`, a WPF desktop app for Windows, a client of the control API. Fixed three-column window, no docking framework. Specified in [design/SPEC.md](../../design/SPEC.md); decided 2026-11-15. |
 | Licence | GPL-3.0, decided 2026-11-15. |
 
 ## Transport: why a built-in iSCSI target

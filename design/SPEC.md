@@ -1,8 +1,8 @@
 # Wobble interface specification
 
-Date: 2026-11-15. Status: approved by the owner on 2026-11-15 (direction "Groove", built as an Avalonia desktop app). The reference rendering is [reference/groove-board.html](reference/groove-board.html); the brand files are in [`assets/brand`](../assets/brand/README.md) and [`assets/icons`](../assets/icons).
+Date: 2026-11-15. Status: approved by the owner on 2026-11-15 (direction "Groove", built as a WPF desktop app for Windows; WPF replaced Avalonia on the owner's decision the same day). The reference rendering is [reference/groove-board.html](reference/groove-board.html); the brand files are in [`assets/brand`](../assets/brand/README.md) and [`assets/icons`](../assets/icons).
 
-The interface is `Wobble.App`, a desktop app for Windows and Linux written in C# with Avalonia. Its executable is `WobbleApp`, so it sits beside the emulator's `wobble` without a name clash. It is a client of the `wobble` control API ([design](../docs/specs/2026-11-15-wobble-design.md), Control API): everything it shows is read from that API and everything it changes goes through it. It never touches the drive model directly.
+The interface is `Wobble.App`, a Windows desktop app written in C# with WPF. The emulator it controls still runs on Windows or Linux: the app can connect to a `wobble` on another machine (G1). Its executable is `WobbleApp`, so it sits beside the emulator's `wobble` without a name clash. It is a client of the `wobble` control API ([design](../docs/specs/2026-11-15-wobble-design.md), Control API): everything it shows is read from that API and everything it changes goes through it. It never touches the drive model directly.
 
 ## Who uses it and for what
 
@@ -42,9 +42,9 @@ One window, minimum 900 by 600 and 1340 by 760 by default, three columns that ne
 | -- | ------- | --------- |
 | W1 | Mark and the name Wobble | Static. |
 | W2 | Drive identity (vendor, product, revision) | A button: opens the drive menu (P1 to P3). |
-| W3 | Connection pill | `Emulator stopped` (rose), `Running, Windows not attached` (amber), `Windows attached, drive E:` (mint). The drive letter is shown on Windows when the drive has one. |
+| W3 | Connection pill | `Emulator stopped` (rose), `Running, Windows not attached` (amber), `Windows attached, drive E:` (mint). The drive letter is shown when the drive has one. |
 | W4 | Target name and endpoint | Mono text; a click copies it. |
-| W5 | Attach to Windows | Shown on Windows while the emulator runs and the initiator is not attached. Runs `tools/attach.ps1` elevated (a UAC prompt). On refusal or failure, shows the reason under the pill. |
+| W5 | Attach to Windows | Shown while a local emulator runs and the initiator is not attached. Runs `tools/attach.ps1` elevated (a UAC prompt). On refusal or failure, shows the reason under the pill. |
 | W6 | Settings | Opens the settings dialog (G1 to G6). |
 
 ### Disc column
@@ -118,7 +118,7 @@ Rule order matters and is the order of the cards. A disabled rule stays in the a
 | G5 | Profile folder | Where drive and media profiles are read from. |
 | G6 | Close to tray | When on, closing the window keeps the app in the tray. |
 
-Settings are stored in the user's application data folder (`%APPDATA%\Wobble\settings.json` on Windows, `~/.config/wobble/settings.json` on Linux), written through a temporary file. A setting that needs the emulator restarted says so and offers `Restart emulator`.
+Settings are stored in the user's application data folder (`%APPDATA%\Wobble\settings.json`), written through a temporary file. A setting that needs the emulator restarted says so and offers `Restart emulator`.
 
 ### Tray
 
