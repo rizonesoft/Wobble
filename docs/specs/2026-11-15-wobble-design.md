@@ -46,7 +46,7 @@ A Storport miniport bridge or a USB gadget front end would call the same interfa
 | `Wobble.Iscsi` | The iSCSI target. |
 | `Wobble.Host` (`wobble`) | The executable: loads profiles, hosts the target and the control API. |
 | `Wobble.Capture` (`wobble-capture`) | Windows tool: queries a real drive over SPTI, writes a drive or media profile, and records command traces. |
-| `Wobble.App` (`Wobble`) | The control app: disc, live command trace and fault rules, over the control API. |
+| `Wobble.App` (`WobbleApp`) | The control app: disc, live command trace and fault rules, over the control API. |
 | `Wobble.Testing` | Test library: starts the emulator, attaches the Windows initiator, finds the drive, calls the control API. |
 | `tests/*` | Unit tests of byte-exact responses; end-to-end tests on Windows through SPTI and IMAPI2. |
 

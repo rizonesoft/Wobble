@@ -2,7 +2,7 @@
 
 Date: 2026-11-15. Status: approved by the owner on 2026-11-15 (direction "Groove", built as an Avalonia desktop app). The reference rendering is [reference/groove-board.html](reference/groove-board.html); the brand files are in [`assets/brand`](../assets/brand/README.md) and [`assets/icons`](../assets/icons).
 
-The interface is `Wobble.App`, a desktop app for Windows and Linux written in C# with Avalonia. It is a client of the `wobble` control API ([design](../docs/specs/2026-11-15-wobble-design.md), Control API): everything it shows is read from that API and everything it changes goes through it. It never touches the drive model directly.
+The interface is `Wobble.App`, a desktop app for Windows and Linux written in C# with Avalonia. Its executable is `WobbleApp`, so it sits beside the emulator's `wobble` without a name clash. It is a client of the `wobble` control API ([design](../docs/specs/2026-11-15-wobble-design.md), Control API): everything it shows is read from that API and everything it changes goes through it. It never touches the drive model directly.
 
 ## Who uses it and for what
 
@@ -34,7 +34,7 @@ Type: Sora (600, 700) for the window title and the media name; IBM Plex Sans (40
 
 ## Window
 
-One window, minimum 1100 by 640, three columns that never reorder: Disc (300 wide), Trace (fills), Faults (250 wide), under a title bar and over a status bar. Below 1100 wide the Faults column collapses to a button in the title bar that opens it as a side sheet.
+One window, minimum 900 by 600 and 1340 by 760 by default, three columns that never reorder: Disc (300 wide), Trace (fills), Faults (250 wide), under a title bar and over a status bar. Below 1100 wide the Faults column collapses to a button in the title bar that opens it as a side sheet.
 
 ### Title bar
 
@@ -82,7 +82,7 @@ One window, minimum 1100 by 640, three columns that never reorder: Disc (300 wid
 | -- | ------- | --------- |
 | F1 | Add rule | Opens the rule editor (F3) empty. |
 | F2 | Rule card | Opcode, trigger, action, `fired x of n`. A toggle enables or disables it; a fired rule has a rose border. Buttons on hover or focus: edit, move up, move down, delete. |
-| F3 | Rule editor | A dialog: opcode (searchable list), trigger fields (LBA from and to, nth, after blocks written, at emulator time), action (sense, delay, buffer underrun, eject, swap media, not ready, drop connection) with its parameters, times. `Save` is disabled until the rule is valid, and each invalid field says why. |
+| F3 | Rule editor | A dialog: opcode (searchable list), trigger fields (LBA from and to, nth, after blocks written, at emulator time), actions as switches that may be combined (sense, delay, buffer underrun, eject, swap media, not ready, drop connection), each with its parameters, and times. `Save` is disabled until the rule is valid, and each invalid field says why. |
 | F4 | Load script | Replaces the rules with a fault script `.json`, after the emulator has accepted it. |
 | F5 | Save script | Writes the rules, enabled or not, as a fault script. |
 | F6 | Clear all | Removes every rule after the same in-button confirmation as T4. |
