@@ -1,6 +1,6 @@
 # Plan: raw CD model, write support, profiles
 
-Date: 2026-11-15. Follows [the design](../specs/2026-11-15-wobble-design.md). Decided with the owner on 2026-11-15: serve both kinds of software, raw CD model first.
+Date: 2026-11-15. Follows [the design](../specs/2026-11-15-wobble-design.md). Decided with the owner on 2026-11-15: Wobble is for testing CarbonCD and DVD read and write support, raw CD model first.
 
 ## Why the order changed
 
@@ -19,7 +19,8 @@ Each slice ends with unit tests and, where Windows is involved, an end-to-end te
 
 - Disc model: sessions and tracks (number, session, audio or Mode 1 or Mode 2, control, pregap, start, length), a lead-out per session, and a sector source that yields 2352-byte raw sectors and 96 bytes of subchannel for any address.
 - Sources: an ISO as one Mode 1 track, with sync, header, EDC and ECC generated; CUE/BIN (`MODE1/2352`, `MODE1/2048`, `MODE2/2352`, `AUDIO`, pregaps, several files). Subchannel is synthesised (P and Q) when the image has none. CloneCD CCD/IMG/SUB loading follows in slice B, where it is also the format written discs are saved in.
-- Commands: READ TOC formats 0, 1, 2 for many tracks; READ CD and READ CD MSF with every header and subchannel selection CarbonCD uses, and sector type checks; READ SUBCHANNEL (0x42); reads of audio tracks through READ (10) refused with 05/64/00; the vendor reads exactly as CarbonCD sends them.
+- Commands: READ TOC formats 0, 1, 2 for many tracks; READ CD and READ CD MSF with every header and subchannel selection CarbonCD uses, and sector type checks; reads of audio tracks through READ (10) refused with 05/64/00.
+- The vendor reads (0xD8, 0xD4, 0xD5) belong to particular drive makes, so they arrive with drive profiles in slice E, not in the generic drive.
 - Done when the step 1 tests still pass and a mixed-mode CUE/BIN reads back byte for byte through raw reads.
 
 ### B. CD-R and CD-RW writing
@@ -29,10 +30,11 @@ Each slice ends with unit tests and, where Windows is involved, an end-to-end te
 - Written discs persist as CCD/IMG/SUB so a test can inspect or reload them.
 - Done when CarbonCD-style sequences (raw and cue sheet) burn a disc in tests and the result reads back identical.
 
-### C. IMAPI2 data burning
+### C. DVD read and write
 
-- CD-R and CD-RW track-at-once as IMAPI2 drives them, then DVD-R, DVD+R, DVD-RW and DVD+RW: incremental and restricted overwrite, FORMAT UNIT, RESERVE TRACK, close and finalise, GET PERFORMANCE and SET STREAMING write speeds.
-- Done when `MsftDiscFormat2Data` burns a file system image to each media type end to end on Windows and the files read back.
+- DVD-R, DVD+R, DVD-RW and DVD+RW media: blank, appendable and finalised states, READ DISC STRUCTURE for recordable media, incremental and restricted overwrite, FORMAT UNIT, RESERVE TRACK, close and finalise, GET PERFORMANCE and SET STREAMING write speeds. CD-R and CD-RW track-at-once as IMAPI2 drives it.
+- Checked two ways: the SPTI command sequences a DVD-capable CarbonCD sends, and IMAPI2 (`MsftDiscFormat2Data`) as an independent Windows burner.
+- Done when a DVD image burns to each media type end to end on Windows and reads back identical.
 
 ### D. Fault injection
 
