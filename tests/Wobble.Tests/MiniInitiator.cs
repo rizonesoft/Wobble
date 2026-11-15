@@ -12,7 +12,7 @@ internal sealed class MiniInitiator(TcpClient tcp) : IDisposable
     private readonly NetworkStream stream = tcp.GetStream();
     private uint cmdSn = 1, expStatSn, taskTag;
 
-    public sealed record Outcome(byte Status, byte[] Data, byte[] Sense, byte Flags, uint Residual, int DataPdus);
+    public sealed record Outcome(byte Status, byte[] Data, byte[] Sense, byte Flags, uint Residual, int DataPdus, int Sequences);
 
     public static async Task<MiniInitiator> ConnectAsync(IPEndPoint endpoint)
     {
@@ -36,10 +36,10 @@ internal sealed class MiniInitiator(TcpClient tcp) : IDisposable
         return (response.Header[36] << 8 | response.Header[37], Pdu.ParseText(response.Data).ToDictionary(p => p.Key, p => p.Value));
     }
 
-    public Task<(int Status, Dictionary<string, string> Keys)> LoginNormalAsync(string target, int maxReceive = 65536) => LoginAsync(
+    public Task<(int Status, Dictionary<string, string> Keys)> LoginNormalAsync(string target, int maxReceive = 65536, int maxBurst = 262144) => LoginAsync(
         ("InitiatorName", "iqn.2026-11.test.wobble:tests"), ("SessionType", "Normal"), ("TargetName", target),
         ("HeaderDigest", "None"), ("DataDigest", "None"), ("InitialR2T", "Yes"), ("ImmediateData", "Yes"),
-        ("MaxRecvDataSegmentLength", maxReceive.ToString()), ("MaxBurstLength", "262144"), ("FirstBurstLength", "65536"));
+        ("MaxRecvDataSegmentLength", maxReceive.ToString()), ("MaxBurstLength", maxBurst.ToString()), ("FirstBurstLength", "65536"));
 
     public async Task<List<KeyValuePair<string, string>>> TextAsync(string key, string value)
     {
@@ -57,7 +57,7 @@ internal sealed class MiniInitiator(TcpClient tcp) : IDisposable
     /// Runs one SCSI command. Data-Out starts with up to one first burst of immediate data (none when
     /// <paramref name="immediateData"/> is false) and the rest follows when the target asks with R2T.
     /// </summary>
-    public async Task<Outcome> CommandAsync(byte[] cdb, int expectedIn = 0, byte[]? dataOut = null, bool immediateData = true, byte lun = 0)
+    public async Task<Outcome> CommandAsync(byte[] cdb, int expectedIn = 0, byte[]? dataOut = null, bool immediateData = true, byte lun = 0, int dataOutShortfall = 0)
     {
         var pdu = Pdu.Create(0x01, dataOut is not null && immediateData ? dataOut[..Math.Min(dataOut.Length, 65536)] : []);
         pdu.Header[1] = (byte)(0x80 | (dataOut is not null ? 0x20 : expectedIn > 0 ? 0x40 : 0));
@@ -70,24 +70,26 @@ internal sealed class MiniInitiator(TcpClient tcp) : IDisposable
         await pdu.WriteAsync(stream, None);
 
         var data = new MemoryStream();
-        int dataPdus = 0;
+        int dataPdus = 0, sequences = 0;
         while (true)
         {
             var r = await ReadAsync();
+            Assert.Equal(taskTag, r.InitiatorTaskTag);                         // every response belongs to this command
             switch (r.Opcode)
             {
                 case 0x25:
                     Assert.Equal(data.Length, Bytes.U32(r.Header, 40));        // data arrives in order
                     data.Write(r.Data);
                     dataPdus++;
+                    if ((r.Header[1] & 0x80) != 0) sequences++;
                     if ((r.Header[1] & 0x01) != 0)
-                        return new Outcome(r.Header[3], data.ToArray(), [], r.Header[1], Bytes.U32(r.Header, 44), dataPdus);
+                        return new Outcome(r.Header[3], data.ToArray(), [], r.Header[1], Bytes.U32(r.Header, 44), dataPdus, sequences);
                     break;
                 case 0x21:
-                    return new Outcome(r.Header[3], data.ToArray(), r.Data.Length > 2 ? r.Data[2..] : [], r.Header[1], Bytes.U32(r.Header, 44), dataPdus);
+                    return new Outcome(r.Header[3], data.ToArray(), r.Data.Length > 2 ? r.Data[2..] : [], r.Header[1], Bytes.U32(r.Header, 44), dataPdus, sequences);
                 case 0x31:
                     int offset = (int)Bytes.U32(r.Header, 40), want = (int)Bytes.U32(r.Header, 44);
-                    var send = Pdu.Create(0x05, dataOut!.AsSpan(offset, want).ToArray());
+                    var send = Pdu.Create(0x05, dataOut!.AsSpan(offset, want - dataOutShortfall).ToArray());
                     send.Header[1] = 0x80;
                     Bytes.Put32(send.Header, 16, taskTag);
                     r.Header.AsSpan(20, 4).CopyTo(send.Header.AsSpan(20));     // target transfer tag
@@ -100,6 +102,48 @@ internal sealed class MiniInitiator(TcpClient tcp) : IDisposable
                     break;
             }
         }
+    }
+
+    /// <summary>Sends a write command with no data and returns its task tag once the target has asked for the data.</summary>
+    public async Task<uint> StartWriteAsync(byte[] cdb, int length)
+    {
+        var pdu = Pdu.Create(0x01);
+        pdu.Header[1] = 0x80 | 0x20;
+        Bytes.Put32(pdu.Header, 16, ++taskTag);
+        Bytes.Put32(pdu.Header, 20, length);
+        Bytes.Put32(pdu.Header, 24, cmdSn++);
+        Bytes.Put32(pdu.Header, 28, expStatSn);
+        cdb.CopyTo(pdu.Header, 32);
+        await pdu.WriteAsync(stream, None);
+        Assert.Equal(0x31, (await ReadAsync()).Opcode);
+        return taskTag;
+    }
+
+    /// <summary>Sends an immediate ABORT TASK for a task and returns the target's response code.</summary>
+    public async Task<byte> AbortTaskAsync(uint referencedTaskTag)
+    {
+        var pdu = Pdu.Create(0x42);
+        pdu.Header[1] = 0x80 | 1;
+        Bytes.Put32(pdu.Header, 16, ++taskTag);
+        Bytes.Put32(pdu.Header, 20, referencedTaskTag);
+        Bytes.Put32(pdu.Header, 24, cmdSn);
+        Bytes.Put32(pdu.Header, 28, expStatSn);
+        await pdu.WriteAsync(stream, None);
+        var response = await ReadAsync();
+        Assert.Equal(0x22, response.Opcode);
+        return response.Header[2];
+    }
+
+    /// <summary>Sends a command that reuses the previous command's CmdSN, as a duplicate would. Reads nothing.</summary>
+    public async Task SendDuplicateCmdSnAsync(byte[] cdb)
+    {
+        var pdu = Pdu.Create(0x01);
+        pdu.Header[1] = 0x80;
+        Bytes.Put32(pdu.Header, 16, ++taskTag);
+        Bytes.Put32(pdu.Header, 24, cmdSn - 1);
+        Bytes.Put32(pdu.Header, 28, expStatSn);
+        cdb.CopyTo(pdu.Header, 32);
+        await pdu.WriteAsync(stream, None);
     }
 
     private async Task<Pdu> ReadAsync()

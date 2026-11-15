@@ -44,15 +44,30 @@ public sealed class EmulatorProcess : IDisposable
         }
 
         nint job = CreateKillOnCloseJob();
-        var process = Process.Start(start) ?? throw new InvalidOperationException($"Could not start {executable}.");
+        Process process;
+        try
+        {
+            process = Process.Start(start) ?? throw new InvalidOperationException($"Could not start {executable}.");
+        }
+        catch
+        {
+            CloseHandle(job);
+            throw;
+        }
         var emulator = new EmulatorProcess(process, job, new WobbleControl($"http://127.0.0.1:{controlPort}"));
         try
         {
-            if (!AssignProcessToJobObject(job, process.Handle)) throw new Win32Exception();
-            var error = process.StandardError.ReadToEndAsync();
+            if (!AssignProcessToJobObject(job, process.Handle))
+            {
+                // Outside the job nothing would stop the process later, so stop its whole tree now.
+                var error = new Win32Exception();
+                process.Kill(entireProcessTree: true);
+                throw error;
+            }
+            var errors = process.StandardError.ReadToEndAsync();
             var ready = await process.StandardOutput.ReadLineAsync().WaitAsync(TimeSpan.FromSeconds(30));
             if (ready is null || !ready.StartsWith("wobble:"))
-                throw new InvalidOperationException($"wobble did not start: {ready} {await error.WaitAsync(TimeSpan.FromSeconds(5))}");
+                throw new InvalidOperationException($"wobble did not start: {ready} {await errors.WaitAsync(TimeSpan.FromSeconds(5))}");
             return emulator;
         }
         catch

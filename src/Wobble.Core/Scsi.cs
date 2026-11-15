@@ -49,6 +49,9 @@ public interface IScsiDevice
     /// <param name="cdb">The command descriptor block. Allocation lengths are read from it.</param>
     /// <param name="dataOut">Data sent with the command, empty for reads.</param>
     ScsiResult Execute(ReadOnlySpan<byte> cdb, ReadOnlySpan<byte> dataOut);
+
+    /// <summary>A logical unit or target reset from the transport.</summary>
+    void Reset();
 }
 
 public sealed record TraceEntry(long Seq, double TimeMs, string Cdb, int DataOutLength, int DataInLength, byte Status, string? Sense);

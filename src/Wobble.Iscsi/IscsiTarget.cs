@@ -58,6 +58,11 @@ public sealed class IscsiTarget(IScsiDevice device, string targetName, IPEndPoin
             {
                 // The initiator went away or the target is stopping: the session ends with the connection.
             }
+            catch (Exception e)
+            {
+                // A defect in the target or the device. Say so, rather than leave a connection that died silently.
+                Console.Error.WriteLine($"wobble: connection from {client.Client.RemoteEndPoint} failed: {e}");
+            }
         }
     }
 

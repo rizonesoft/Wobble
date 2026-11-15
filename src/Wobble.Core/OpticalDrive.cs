@@ -10,6 +10,9 @@ public sealed partial class OpticalDrive(DriveIdentity? identity = null, TimePro
 {
     public const int BlockSize = 2048;
 
+    /// <summary>The most blocks one read command may ask for (64 MiB), so a CDB cannot demand an unbounded buffer.</summary>
+    public const int MaxTransferBlocks = 32768;
+
     private readonly Lock gate = new();
     private readonly DriveIdentity id = identity ?? DriveIdentity.Default;
     private readonly TimeProvider time = clock ?? TimeProvider.System;
@@ -51,6 +54,15 @@ public sealed partial class OpticalDrive(DriveIdentity? identity = null, TimePro
             media.Dispose();
             media = null;
             mediaEvent = 3;
+        }
+    }
+
+    public void Reset()
+    {
+        lock (gate)
+        {
+            preventRemoval = false;
+            unitAttention = Sense.PowerOnReset;
         }
     }
 
@@ -223,6 +235,7 @@ public sealed partial class OpticalDrive(DriveIdentity? identity = null, TimePro
     private ScsiResult Read(long lba, long count)
     {
         if (!InRange(lba, count)) return ScsiResult.Check(Sense.LbaOutOfRange);
+        if (count > MaxTransferBlocks) return ScsiResult.Check(Sense.InvalidFieldInCdb);
         var data = new byte[count * BlockSize];
         if (count > 0) Current!.Image.Read(lba, data);
         return ScsiResult.Good(data);
@@ -233,7 +246,9 @@ public sealed partial class OpticalDrive(DriveIdentity? identity = null, TimePro
         if (Current!.Kind != MediaKind.CdRom) return ScsiResult.Check(Sense.IncompatibleMedium);
         int sectorType = (cdb[1] >> 2) & 0x07;
         // The disc is one Mode 1 data track, and only its 2048 bytes of user data are modelled.
-        if (sectorType is not (0 or 2) || cdb[9] != 0x10) return ScsiResult.Check(Sense.InvalidFieldInCdb);
+        // Byte 10 selects subchannel data, which is not modelled either.
+        if (sectorType is not (0 or 2) || cdb[9] != 0x10 || (cdb[10] & 0x07) != 0)
+            return ScsiResult.Check(Sense.InvalidFieldInCdb);
         return Read(U32(cdb, 2), U24(cdb, 6));
     }
 

@@ -219,8 +219,9 @@ public sealed partial class OpticalDrive
         int requested = cdb[4] & SupportedEventClasses;
         int allocation = U16(cdb, 7);
 
+        // The length field counts the bytes after itself: the rest of the header plus the event.
         if (requested == 0)
-            return ScsiResult.Good(Fit([0, 0, 0x80, SupportedEventClasses], allocation));
+            return ScsiResult.Good(Fit([0, 2, 0x80, SupportedEventClasses], allocation));
 
         // Report the media class when it has news, otherwise the lowest requested class with nothing to say.
         int eventClass = (requested & 0x10) != 0 && mediaEvent != 0 ? 4
@@ -228,7 +229,7 @@ public sealed partial class OpticalDrive
             : (requested & 0x04) != 0 ? 2 : 4;
 
         var data = new byte[8];
-        Put16(data, 0, 4);
+        Put16(data, 0, 6);
         data[2] = (byte)eventClass;
         data[3] = SupportedEventClasses;
         switch (eventClass)
@@ -239,7 +240,8 @@ public sealed partial class OpticalDrive
             case 4:
                 data[4] = mediaEvent;
                 data[5] = (byte)((trayOpen ? 0x01 : 0) | (Current is not null ? 0x02 : 0));
-                mediaEvent = 0;
+                // A host that fetched only the header has not seen the event, so it stays pending.
+                if (allocation > 4) mediaEvent = 0;
                 break;
         }
         return ScsiResult.Good(Fit(data, allocation));

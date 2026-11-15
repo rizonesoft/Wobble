@@ -116,7 +116,7 @@ internal sealed class IscsiConnection(TcpClient client, IScsiDevice device, stri
                 else if (!discovery && requestedTarget != targetName) status = (2, 3);   // target not found
                 else
                 {
-                    if (!discovery) reply.Add(new("TargetPortalGroupTag", "1"));
+                    reply.Add(new("TargetPortalGroupTag", "1"));
                     namesChecked = true;
                 }
             }
@@ -148,25 +148,34 @@ internal sealed class IscsiConnection(TcpClient client, IScsiDevice device, stri
 
     // ---- Full feature phase -----------------------------------------------------------------
 
+    /// <summary>
+    /// Applies command sequencing. On one in-order connection every numbered request must carry the expected
+    /// CmdSN; anything else is a duplicate or out of the window and is ignored (RFC 7143, 4.2.2.1).
+    /// </summary>
+    private bool Accept(Pdu pdu)
+    {
+        bool numbered = pdu.Opcode is 0x00 or 0x01 or 0x02 or 0x04 or 0x06;
+        if (!numbered || pdu.Immediate) return true;
+        if (U32(pdu.Header, 24) != expCmdSn) return false;
+        expCmdSn++;
+        return true;
+    }
+
     private async Task<bool> HandleAsync(Pdu pdu, CancellationToken cancel)
     {
-        if (!pdu.Immediate && pdu.Opcode != 0x05) expCmdSn = U32(pdu.Header, 24) + 1;
+        if (!Accept(pdu)) return true;
 
         switch (pdu.Opcode)
         {
             case 0x00:                                      // NOP-Out
-                if (pdu.InitiatorTaskTag == NoTag) return true;
-                var ping = Reply(pdu, 0x20, pdu.Data);
-                pdu.Header.AsSpan(8, 8).CopyTo(ping.Header.AsSpan(8));
-                Put32(ping.Header, 20, NoTag);
-                await SendAsync(ping, cancel);
+                await NopAsync(pdu, cancel);
                 return true;
 
             case 0x01 when !discovery:                      // SCSI command
                 return await ScsiCommandAsync(pdu, cancel);
 
-            case 0x02:                                      // task management: commands run to completion, so nothing is left to abort
-                await SendAsync(Reply(pdu, 0x22), cancel);
+            case 0x02:                                      // task management
+                await TaskManagementAsync(pdu, cancel);
                 return true;
 
             case 0x04:                                      // text request
@@ -190,6 +199,44 @@ internal sealed class IscsiConnection(TcpClient client, IScsiDevice device, stri
                 await SendAsync(reject, cancel);
                 return true;
         }
+    }
+
+    private async Task NopAsync(Pdu pdu, CancellationToken cancel)
+    {
+        if (pdu.InitiatorTaskTag == NoTag) return;          // an answer to a ping, not a ping
+        var ping = Reply(pdu, 0x20, pdu.Data);
+        pdu.Header.AsSpan(8, 8).CopyTo(ping.Header.AsSpan(8));
+        Put32(ping.Header, 20, NoTag);
+        await SendAsync(ping, cancel);
+    }
+
+    /// <summary>
+    /// Commands run to completion one at a time, so by the time a task management request is read there is
+    /// nothing left to abort, except a write still collecting its data, which the caller ends.
+    /// </summary>
+    private async Task TaskManagementAsync(Pdu pdu, CancellationToken cancel)
+    {
+        int function = pdu.Header[1] & 0x7F;
+        byte outcome;
+        switch (function)
+        {
+            case 1 or 2 or 4:                               // abort task, abort task set, clear task set
+                outcome = 0;                                // function complete
+                break;
+            case 5 or 6 or 7:                               // logical unit reset, target warm and cold reset
+                device.Reset();
+                outcome = 0;
+                break;
+            case 8:
+                outcome = 4;                                // task reassignment not supported
+                break;
+            default:
+                outcome = 5;                                // function not supported
+                break;
+        }
+        var response = Reply(pdu, 0x22);
+        response.Header[2] = outcome;
+        await SendAsync(response, cancel);
     }
 
     /// <summary>A final response PDU carrying the request's initiator task tag.</summary>
@@ -233,7 +280,8 @@ internal sealed class IscsiConnection(TcpClient client, IScsiDevice device, stri
         byte[]? dataOut = pdu.Data;
         if (write && dataOut.Length < expected)
         {
-            dataOut = await SolicitAsync(pdu, expected, cancel);
+            (dataOut, bool aborted) = await SolicitAsync(pdu, expected, cancel);
+            if (aborted) return true;                       // the initiator gave the task up: no response is owed
             if (dataOut is null) return false;
         }
 
@@ -250,14 +298,19 @@ internal sealed class IscsiConnection(TcpClient client, IScsiDevice device, stri
 
         if (result.Status == ScsiStatus.Good && length > 0)
         {
+            // Data goes out in sequences of at most MaxBurstLength, each ending with the F bit.
+            // The last PDU of the last sequence also carries the status.
             uint dataSn = 0;
+            int inSequence = 0;
             for (int offset = 0; offset < length;)
             {
-                int n = Math.Min(initiatorMaxReceive, length - offset);
+                int n = Math.Min(Math.Min(initiatorMaxReceive, length - offset), maxBurst - inSequence);
                 bool last = offset + n == length;
+                bool endsSequence = last || inSequence + n == maxBurst;
+                inSequence = endsSequence ? 0 : inSequence + n;
                 var dataIn = Reply(pdu, 0x25, result.DataIn.AsSpan(offset, n).ToArray());
                 var d = dataIn.Header;
-                d[1] = (byte)(last ? 0x80 | 0x01 | fit : 0);           // final, with status
+                d[1] = (byte)((endsSequence ? 0x80 : 0) | (last ? 0x01 | fit : 0));
                 h.AsSpan(8, 8).CopyTo(d.AsSpan(8));
                 Put32(d, 20, NoTag);
                 Put32(d, 36, dataSn++);
@@ -303,8 +356,11 @@ internal sealed class IscsiConnection(TcpClient client, IScsiDevice device, stri
         }
     }
 
-    /// <summary>Collects the rest of a write's data with R2T. Returns null on a protocol error.</summary>
-    private async Task<byte[]?> SolicitAsync(Pdu command, uint expected, CancellationToken cancel)
+    /// <summary>
+    /// Collects the rest of a write's data with R2T. Returns no data on a protocol error, which ends the
+    /// connection, and Aborted when the initiator ended the task with a task management request.
+    /// </summary>
+    private async Task<(byte[]? Data, bool Aborted)> SolicitAsync(Pdu command, uint expected, CancellationToken cancel)
     {
         var buffer = new byte[expected];
         command.Data.CopyTo(buffer, 0);
@@ -322,22 +378,48 @@ internal sealed class IscsiConnection(TcpClient client, IScsiDevice device, stri
             Put32(r2t.Header, 44, want);
             await SendAsync(r2t, cancel, carriesStatus: false);
 
+            uint received = 0, dataSn = 0;
             while (true)
             {
                 var pdu = await Pdu.ReadAsync(stream, cancel);
-                if (pdu is null) return null;
-                if (pdu.Opcode != 0x05 || U32(pdu.Header, 20) != tag)
+                if (pdu is null) return (null, false);
+
+                if (pdu.Opcode == 0x05 && U32(pdu.Header, 20) == tag)
                 {
-                    deferred.Enqueue(pdu);
-                    continue;
+                    // Data must be for this task, in order, contiguous, and exactly what was asked for.
+                    if (pdu.InitiatorTaskTag != command.InitiatorTaskTag
+                        || U32(pdu.Header, 36) != dataSn++
+                        || U32(pdu.Header, 40) != offset + received
+                        || received + (uint)pdu.Data.Length > want)
+                        return (null, false);
+                    pdu.Data.CopyTo(buffer, offset + received);
+                    received += (uint)pdu.Data.Length;
+                    if ((pdu.Header[1] & 0x80) == 0) continue;
+                    if (received != want) return (null, false);
+                    break;
                 }
-                uint at = U32(pdu.Header, 40);
-                if ((long)at + pdu.Data.Length > expected) return null;
-                pdu.Data.CopyTo(buffer, at);
-                if ((pdu.Header[1] & 0x80) != 0) break;
+
+                switch (pdu.Opcode)
+                {
+                    case 0x00 when Accept(pdu):
+                        await NopAsync(pdu, cancel);
+                        break;
+                    case 0x02 when Accept(pdu):
+                        int function = pdu.Header[1] & 0x7F;
+                        bool endsThisTask = function is 2 or 4 or 5 or 6 or 7
+                            || (function == 1 && U32(pdu.Header, 20) == command.InitiatorTaskTag);
+                        await TaskManagementAsync(pdu, cancel);
+                        if (endsThisTask) return (null, true);
+                        break;
+                    case 0x00 or 0x02:
+                        break;                              // out of sequence: ignored
+                    default:
+                        deferred.Enqueue(pdu);              // handled once this write has its data
+                        break;
+                }
             }
             offset += want;
         }
-        return buffer;
+        return (buffer, false);
     }
 }

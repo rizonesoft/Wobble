@@ -68,3 +68,5 @@ The end-to-end tests start `wobble` themselves on ports 3260 and 3261, so stop a
 - Mode pages are fixed: MODE SELECT is accepted and changes nothing.
 - REPORT KEY and other copy protection commands are refused (out of scope).
 - One iSCSI connection per session, no digests, no authentication; it listens on loopback only by default.
+- One initiator at a time: drive state such as a pending unit attention is not kept per initiator.
+- One read command transfers at most 32768 blocks (64 MiB).

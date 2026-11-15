@@ -29,10 +29,10 @@ public class IscsiTargetTests : IAsyncLifetime
         drive.Dispose();
     }
 
-    private async Task<MiniInitiator> LoggedInAsync(int maxReceive = 65536)
+    private async Task<MiniInitiator> LoggedInAsync(int maxReceive = 65536, int maxBurst = 262144)
     {
         var initiator = await MiniInitiator.ConnectAsync(target.LocalEndpoint);
-        var (status, _) = await initiator.LoginNormalAsync(Iqn, maxReceive);
+        var (status, _) = await initiator.LoginNormalAsync(Iqn, maxReceive, maxBurst);
         Assert.Equal(0, status);
         return initiator;
     }
@@ -65,8 +65,9 @@ public class IscsiTargetTests : IAsyncLifetime
     public async Task Discovery_SendTargets_ListsTheTargetAndItsAddress()
     {
         using var initiator = await MiniInitiator.ConnectAsync(target.LocalEndpoint);
-        var (status, _) = await initiator.LoginAsync(("InitiatorName", "iqn.2026-11.test.wobble:tests"), ("SessionType", "Discovery"));
+        var (status, keys) = await initiator.LoginAsync(("InitiatorName", "iqn.2026-11.test.wobble:tests"), ("SessionType", "Discovery"));
         Assert.Equal(0, status);
+        Assert.Equal("1", keys["TargetPortalGroupTag"]);                // required for every session type
 
         var reply = await initiator.TextAsync("SendTargets", "All");
 
@@ -100,6 +101,60 @@ public class IscsiTargetTests : IAsyncLifetime
         Assert.Equal(16, outcome.DataPdus);
         Assert.Equal(image.AsSpan(10 * 2048, 64 * 2048).ToArray(), outcome.Data);
         Assert.Equal(0u, outcome.Residual);
+    }
+
+    [Fact]
+    public async Task Read_LargerThanMaxBurstLength_IsSplitIntoSequences()
+    {
+        using var initiator = await LoggedInAsync(maxReceive: 8192, maxBurst: 20480);
+
+        var outcome = await initiator.CommandAsync([0x28, 0, 0, 0, 0, 0, 0, 0, 25, 0], expectedIn: 25 * 2048);
+
+        // 51200 bytes in bursts of 20480: two full sequences of 8192 + 8192 + 4096, then 8192 + 2048.
+        Assert.Equal(image.AsSpan(0, 25 * 2048).ToArray(), outcome.Data);
+        Assert.Equal(8, outcome.DataPdus);
+        Assert.Equal(3, outcome.Sequences);
+    }
+
+    [Fact]
+    public async Task CommandWithADuplicateCmdSn_IsIgnored()
+    {
+        using var initiator = await LoggedInAsync();
+        await initiator.CommandAsync([0x00, 0, 0, 0, 0, 0]);
+        drive.ClearTrace();
+
+        await initiator.SendDuplicateCmdSnAsync([0x1B, 0, 0, 0, 0x02, 0]);     // an eject that must not happen
+        var outcome = await initiator.CommandAsync([0x00, 0, 0, 0, 0, 0]);     // fails if the duplicate was answered
+
+        Assert.Equal(ScsiStatus.Good, outcome.Status);
+        Assert.Equal("000000000000", Assert.Single(drive.Trace).Cdb);
+    }
+
+    [Fact]
+    public async Task AbortingAWriteThatIsWaitingForData_EndsIt_AndTheConnectionCarriesOn()
+    {
+        using var initiator = await LoggedInAsync();
+        drive.ClearTrace();
+
+        uint task = await initiator.StartWriteAsync([0x55, 0x10, 0, 0, 0, 0, 0, 0, 20, 0], 20);
+        byte response = await initiator.AbortTaskAsync(task);
+        var next = await initiator.CommandAsync([0x00, 0, 0, 0, 0, 0]);
+
+        Assert.Equal(0, response);                                              // function complete
+        Assert.Equal(ScsiStatus.Good, next.Status);
+        Assert.Equal("000000000000", Assert.Single(drive.Trace).Cdb);           // the aborted command never ran
+    }
+
+    [Fact]
+    public async Task DataOutShorterThanRequested_EndsTheConnection_WithoutRunningTheCommand()
+    {
+        using var initiator = await LoggedInAsync();
+        drive.ClearTrace();
+
+        await Assert.ThrowsAsync<EndOfStreamException>(() => initiator.CommandAsync(
+            [0x55, 0x10, 0, 0, 0, 0, 0, 0, 20, 0], dataOut: new byte[20], immediateData: false, dataOutShortfall: 1));
+
+        Assert.Empty(drive.Trace);
     }
 
     [Fact]
@@ -155,5 +210,7 @@ public class IscsiTargetTests : IAsyncLifetime
             DataOut = dataOut.ToArray();
             return ScsiResult.Good();
         }
+
+        public void Reset() { }
     }
 }

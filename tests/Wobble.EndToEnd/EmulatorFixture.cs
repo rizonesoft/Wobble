@@ -31,6 +31,12 @@ public sealed class EmulatorFixture : IAsyncLifetime
     /// <summary>Makes sure the fixture disc is loaded as the given kind ("cd" or "dvd") and mounted.</summary>
     public async Task LoadAsync(string kind)
     {
+        if (loadedKind != kind)
+        {
+            // Take the old disc out and wait for Windows to notice, so nothing below can see stale media.
+            await Emulator.Control.RemoveMediaAsync();
+            await Drive.WaitForReadyAsync(false, TimeSpan.FromSeconds(60));
+        }
         if (loadedKind != kind || !new DriveInfo(Drive.Root).IsReady)
         {
             await Emulator.Control.InsertMediaAsync(Image, kind);

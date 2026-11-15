@@ -60,6 +60,24 @@ public class ReadTests(EmulatorFixture fixture) : IClassFixture<EmulatorFixture>
         Assert.Equal("WOBBLE_TEST", new DriveInfo(fixture.Drive.Root).VolumeLabel);
     }
 
+    // Windows drops GET EVENT STATUS NOTIFICATION after one answer it considers malformed and falls back to
+    // TEST UNIT READY polling, so continued polling shows it accepts Wobble's event answers.
+    [Fact]
+    public async Task WindowsKeepsPollingForMediaEvents()
+    {
+        await fixture.LoadAsync("cd");
+        int before = await EventPollsAsync();
+
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        while (await EventPollsAsync() < before + 3)
+        {
+            Assert.True(clock.Elapsed < TimeSpan.FromSeconds(30), "Windows stopped sending GET EVENT STATUS NOTIFICATION.");
+            await Task.Delay(500);
+        }
+
+        async Task<int> EventPollsAsync() => (await fixture.Emulator.Control.TraceAsync()).Count(line => line.Cdb.StartsWith("4A"));
+    }
+
     [Fact]
     public async Task WindowsSendsNothingWobbleRejects_ExceptCopyProtectionQueries()
     {

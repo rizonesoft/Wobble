@@ -177,8 +177,70 @@ public class OpticalDriveTests
         var drive = DriveWith(MediaKind.CdRom);
         byte[] poll = [0x4A, 0x01, 0, 0, 0x10, 0, 0, 0, 8, 0];
 
-        Assert.Equal(new byte[] { 0, 4, 0x04, 0x16, 0x02, 0x02, 0, 0 }, drive.Execute(poll, []).DataIn);
-        Assert.Equal(new byte[] { 0, 4, 0x04, 0x16, 0x00, 0x02, 0, 0 }, drive.Execute(poll, []).DataIn);
+        // The length field counts what follows it: 2 header bytes and the 4-byte event. Windows checks for 6.
+        Assert.Equal(new byte[] { 0, 6, 0x04, 0x16, 0x02, 0x02, 0, 0 }, drive.Execute(poll, []).DataIn);
+        Assert.Equal(new byte[] { 0, 6, 0x04, 0x16, 0x00, 0x02, 0, 0 }, drive.Execute(poll, []).DataIn);
+    }
+
+    [Fact]
+    public void GetEventStatusNotification_HeaderOnlyProbe_DoesNotConsumeTheEvent()
+    {
+        var drive = DriveWith(MediaKind.CdRom);
+
+        Assert.Equal(new byte[] { 0, 6, 0x04, 0x16 }, drive.Execute([0x4A, 0x01, 0, 0, 0x10, 0, 0, 0, 4, 0], []).DataIn);
+        Assert.Equal(0x02, drive.Execute([0x4A, 0x01, 0, 0, 0x10, 0, 0, 0, 8, 0], []).DataIn[4]);
+    }
+
+    [Fact]
+    public void GetEventStatusNotification_ForUnsupportedClasses_ReportsNoEventAvailable()
+    {
+        var data = DriveWith(MediaKind.CdRom).Execute([0x4A, 0x01, 0, 0, 0x40, 0, 0, 0, 8, 0], []).DataIn;
+
+        Assert.Equal(new byte[] { 0, 2, 0x80, 0x16 }, data);
+    }
+
+    [Fact]
+    public void Read_OfMoreThanTheTransferLimit_IsRefused()
+    {
+        var drive = new OpticalDrive();
+        drive.InsertMedia(new Media(new EmptyDisc(1_000_000), MediaKind.DvdRom));
+        Settle(drive);
+        byte[] read12 = [0xA8, 0, 0, 0, 0, 0, 0, 0, 0x80, 0x01, 0, 0];         // 32769 blocks
+
+        Assert.Equal(Sense.InvalidFieldInCdb, drive.Execute(read12, []).Sense);
+        read12[9] = 0x00;                                                      // 32768 blocks
+        Assert.Equal(OpticalDrive.MaxTransferBlocks * OpticalDrive.BlockSize, drive.Execute(read12, []).DataIn.Length);
+    }
+
+    [Fact]
+    public void ReadCd_ReturnsUserData_AndRefusesSubchannelRequests()
+    {
+        var drive = DriveWith(MediaKind.CdRom);
+        byte[] userData = [0xBE, 0, 0, 0, 0, 5, 0, 0, 1, 0x10, 0, 0];
+
+        Assert.All(drive.Execute(userData, []).DataIn, b => Assert.Equal(5, b));
+        userData[10] = 0x02;                                                    // also formatted Q subchannel
+        Assert.Equal(Sense.InvalidFieldInCdb, drive.Execute(userData, []).Sense);
+    }
+
+    [Fact]
+    public void Reset_RaisesAUnitAttention_AndAllowsRemovalAgain()
+    {
+        var drive = DriveWith(MediaKind.CdRom);
+        drive.Execute(Cdb(6, 0x1E, 0, 0, 0, 0x01), []);
+
+        drive.Reset();
+
+        Assert.Equal(Sense.PowerOnReset, drive.Execute(Cdb(6, 0x00), []).Sense);
+        Assert.Equal(ScsiStatus.Good, drive.Execute(Cdb(6, 0x1B, 0, 0, 0, 0x02), []).Status);
+    }
+
+    /// <summary>A large blank image that costs no memory.</summary>
+    private sealed class EmptyDisc(long blocks) : IDiscImage
+    {
+        public long BlockCount => blocks;
+        public void Read(long lba, Span<byte> destination) => destination.Clear();
+        public void Dispose() { }
     }
 
     [Fact]
