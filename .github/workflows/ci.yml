@@ -1,0 +1,32 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 11.0.x
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Check
+        shell: pwsh
+        run: pwsh scripts/check.ps1
+      - name: Kit script tests
+        shell: pwsh
+        run: python -m unittest discover -s scripts/tests
