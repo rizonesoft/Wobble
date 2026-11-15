@@ -94,7 +94,7 @@ The shell every later section fills: the project, the theme tokens from the spec
 - [ ] Embed Sora, IBM Plex Sans and IBM Plex Mono under `src/Wobble.App/Assets/Fonts/` with their OFL texts, and register them as `FontFamily` resources. Done when: a UI test measures a text block and its typeface is Sora.
 - [ ] Add `tests/Wobble.App.Tests/Ui.cs`, a helper that runs a test on an STA thread with a dispatcher, builds a view, and measures, arranges and renders it at a given size without calling `Show`. Done when: `ShellTests` builds `MainWindow` through it and no window appears on the desktop. Cheaper substitute: tests that show real windows, which flash on the desktop during every run.
 - [ ] Build `MainWindow.xaml` with the title bar, the Disc, Trace and Faults columns (300, fill, 250) and the status bar, each an empty named region, minimum size 900 by 600. Done when: the UI test finds the five regions by automation id.
-- [ ] Collapse the Faults column into a title bar button and side sheet below 1100 wide in `src/Wobble.App/Views/MainWindow.axaml`. Done when: a UI test resizes the window to 1000 and finds the button.
+- [ ] Collapse the Faults column into a title bar button and side sheet below 1100 wide in `src/Wobble.App/Views/MainWindow.xaml`. Done when: a UI test resizes the window to 1000 and finds the button.
 - [ ] Run `tests/Wobble.App.Tests` in the `unit tests` step of `scripts/check.ps1`, leaving out tests with the trait `Category=EndToEnd`, and run those in its `-EndToEnd` step. Done when: a failing UI test makes `pwsh scripts/check.ps1` exit 1. Cheaper substitute: a test project the gate and CI never run.
 - [ ] Add a rule to `.editorconfig` or an analyzer test in `tests/Wobble.App.Tests/ThemeTests.cs` that fails when a `.xaml` view under `src/Wobble.App/Views` holds a `#` colour literal. Done when: adding `Background="#fff"` to a view fails the test. Cheaper substitute: literal colours in views, which drift from the tokens.
 - [ ] Commit: `app: add the WPF shell with the Groove theme`
@@ -120,7 +120,7 @@ The app is a client. One service owns the connection: it starts `wobble` or conn
 
 - [ ] Add `EmulatorSession` that starts `wobble` as a child in a job object, so the whole tree stops with the app, and stops it on exit. Done when: a test starts the app's session, kills the test host process abruptly in a child harness and finds no `wobble` left. Cheaper substitute: `Process.Kill` on the direct child only.
 - [ ] Poll status every 250 ms and the trace after the last seen `seq`, off the UI thread, backing off to 2 seconds while unreachable. Done when: a UI test sees the command count rise after commands are sent to the emulator.
-- [ ] Bind W2 (identity), W3 (the three connection states, with the drive letter found through the drive's serial on Windows) and W4 (target and endpoint, click copies) in `src/Wobble.App/Views/TitleBar.axaml`. Done when: tests cover stopped, running and attached.
+- [ ] Bind W2 (identity), W3 (the three connection states, with the drive letter found through the drive's serial on Windows) and W4 (target and endpoint, click copies) in `src/Wobble.App/Views/TitleBar.xaml`. Done when: tests cover stopped, running and attached.
 - [ ] Bind S1 to S5, with S3 rose while the last failed command is among the newest 50 and S5 amber when versions differ. Done when: a test in `SessionTests` asserts it and fails when the behaviour is removed.
 - [ ] Show the unreachable banner with the address, the error, `Retry` and `Settings`, and dim the columns. Done when: a UI test stops the emulator and finds the banner, then restarts it and the banner is gone.
 - [ ] Commit: `app: connect to the emulator and show its state`
@@ -171,10 +171,10 @@ The left column answers what is in the drive right now, as a picture and as numb
 2. Draw the disc figure (D1) as a custom control. Done when: tracks, write progress, the empty tray and the open tray each draw differently.
 
 - [ ] Add `DiscFigure` in `src/Wobble.App/Controls/DiscFigure.cs` drawing the written area as spectrum rings, one segment per track proportional to its blocks, and a progress arc while writing. Done when: a off-screen render (`RenderTargetBitmap`) of a four-track disc has four segments and differs from a blank disc's render.
-- [ ] Draw a dashed outline for no disc and offset the figure when the tray is open in `src/Wobble.App/Views/DiscView.axaml`. Done when: both states render differently in a test.
-- [ ] Bind D2 to the nine states of the specification and D3 to the media name built from kind and capacity in `src/Wobble.App/Views/DiscView.axaml`. Done when: a test per state passes.
-- [ ] Bind D4, hiding a fact the disc does not have, with figures grouped in threes in `src/Wobble.App/Views/DiscView.axaml`. Done when: a pressed CD shows no manufacturer row and a CD-R shows its ATIP.
-- [ ] Bind D9 with a header per session and MSF for CD, LBA otherwise in `src/Wobble.App/Views/DiscView.axaml`. Done when: a two-session disc shows two headers.
+- [ ] Draw a dashed outline for no disc and offset the figure when the tray is open in `src/Wobble.App/Views/DiscView.xaml`. Done when: both states render differently in a test.
+- [ ] Bind D2 to the nine states of the specification and D3 to the media name built from kind and capacity in `src/Wobble.App/Views/DiscView.xaml`. Done when: a test per state passes.
+- [ ] Bind D4, hiding a fact the disc does not have, with figures grouped in threes in `src/Wobble.App/Views/DiscView.xaml`. Done when: a pressed CD shows no manufacturer row and a CD-R shows its ATIP.
+- [ ] Bind D9 with a header per session and MSF for CD, LBA otherwise in `src/Wobble.App/Views/DiscView.xaml`. Done when: a two-session disc shows two headers.
 - [ ] Show the empty state text and only D5 and D6 when there is no disc. Done when: a test in `DiscViewTests` asserts it and fails when the behaviour is removed.
 - [ ] Commit: `app: show the disc`
 
@@ -225,7 +225,7 @@ The trace is where the tester's eye stays. It must keep up with a burn, hold 100
 2. Add follow, pause, clear and the dropped notice. Done when: T3, T4, T6, T8 and T9 behave as specified.
 
 - [ ] Add `TraceViewModel` holding rows in an append-only buffer that mirrors the emulator's capacity, fed from `EmulatorSession`. Done when: a test appends 100 000 rows and the view model's memory stays within one copy of them.
-- [ ] Build T6 with the eight columns, mono figures, the rose well and left bar on failed rows and the rule number on faulted rows, in a virtualising panel in `src/Wobble.App/Views/TraceView.axaml`. Done when: a UI test with 100 000 rows realises fewer than 100 row controls.
+- [ ] Build T6 with the eight columns, mono figures, the rose well and left bar on failed rows and the rule number on faulted rows, in a virtualising panel in `src/Wobble.App/Views/TraceView.xaml`. Done when: a UI test with 100 000 rows realises fewer than 100 row controls.
 - [ ] Implement T8: follow the newest row until the user scrolls up, then show `Jump to newest`. Done when: a test in `TraceViewTests` proves it by scrolling.
 - [ ] Implement T3: pause stops the view, the button counts commands received since, resume catches up; Space toggles it when the trace has focus. Done when: a test in `TraceViewTests` asserts it and fails when the behaviour is removed.
 - [ ] Implement T4 with the in-button confirmation (`Clear`, then `Confirm clear` for 3 seconds) calling `POST /reset`'s trace half through a new `DELETE /trace` route in `src/Wobble.Host/Program.cs`. Done when: one click clears nothing and two do. Cheaper substitute: `POST /reset`, which would also remove the disc.
@@ -306,10 +306,10 @@ A rule has a dozen possible fields and most combinations are wrong. The editor s
 2. Validate as the emulator does. Done when: `Save` is enabled only for a rule `FaultScript.Parse` accepts.
 
 - [ ] Build the opcode picker as a searchable list from `src/Wobble.Core/Opcodes.cs`. Done when: typing `wri` lists the WRITE opcodes.
-- [ ] Build the trigger fields (LBA from and to, nth, after blocks written, at emulator time), each optional in `src/Wobble.App/Views/FaultRuleDialog.axaml`. Done when: a rule with only an opcode saves.
+- [ ] Build the trigger fields (LBA from and to, nth, after blocks written, at emulator time), each optional in `src/Wobble.App/Views/FaultRuleDialog.xaml`. Done when: a rule with only an opcode saves.
 - [ ] Build the actions as a set of switches (sense, delay, buffer underrun, eject, swap media, not ready, drop connection), any of which may be combined as the design's `do` object allows, each showing its parameters when on, with sense entered as `KK/AA/QQ` or picked from the named list in `SenseText`. Done when: a test in `FaultEditorTests` proves it alone, and the design's fourth example (the 200th WRITE delayed 4 000 ms with a buffer underrun) is entered through the editor and reaches the emulator as one rule.
 - [ ] Validate through `FaultScript.Parse` on the rule as edited, showing each message at its field. Done when: `lbaFrom` above `lbaTo` disables `Save` and names both fields. Cheaper substitute: validation rules written a second time in the app.
-- [ ] Implement F1 and Ctrl+N in `src/Wobble.App/Views/FaultRuleDialog.axaml`. Done when: a UI test adds a rule and the emulator reports it.
+- [ ] Implement F1 and Ctrl+N in `src/Wobble.App/Views/FaultRuleDialog.xaml`. Done when: a UI test adds a rule and the emulator reports it.
 - [ ] Commit: `app: add the fault rule editor`
 
 **Test checkpoint:** `dotnet test tests/Wobble.App.Tests --filter "FullyQualifiedName~FaultEditorTests"` prints `Passed!` with no failed test.
@@ -334,7 +334,7 @@ Changing the emulated drive is rarer than changing the disc, so it lives behind 
 - [ ] Build P1 listing drive profiles from `GET /profiles` with the current one ticked, loading the chosen one with `PUT /drive`. Done when: a test in `DriveMenuTests` proves it with two bundled profiles.
 - [ ] Build P2 with a file picker for a profile `.json`, showing the loader's message in the menu when it is refused. Done when: a test in `DriveMenuTests` proves it with a bad file.
 - [ ] Build P3 with vendor, product, revision, serial and the supported media profiles as glyphs. Done when: a test in `DriveMenuTests` asserts it and fails when the behaviour is removed.
-- [ ] Refresh W2 from the next status in `src/Wobble.App/Views/DriveMenu.axaml`. Done when: the new product name appears.
+- [ ] Refresh W2 from the next status in `src/Wobble.App/Views/DriveMenu.xaml`. Done when: the new product name appears.
 - [ ] Commit: `app: choose the emulated drive`
 
 **Test checkpoint:** `dotnet test tests/Wobble.App.Tests --filter "FullyQualifiedName~DriveMenuTests"` prints `Passed!` with no failed test.
