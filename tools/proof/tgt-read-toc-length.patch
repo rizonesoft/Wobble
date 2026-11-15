@@ -1,0 +1,13 @@
+diff --git a/usr/mmc.c b/usr/mmc.c
+index edfea61..6a5098c 100644
+--- a/usr/mmc.c
++++ b/usr/mmc.c
+@@ -277,7 +277,7 @@ static int mmc_read_toc(int host_no, struct scsi_cmd *cmd)
+ 	memcpy(scsi_get_in_buffer(cmd), data,
+ 	       min(scsi_get_in_length(cmd), (uint32_t) sizeof(buf)));
+ 
+-	scsi_set_in_resid_by_actual(cmd, data[1]);
++	scsi_set_in_resid_by_actual(cmd, data[1] + 2);
+ 
+ 	return SAM_STAT_GOOD;
+ }
