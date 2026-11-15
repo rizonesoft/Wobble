@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions and ideas
+    url: https://github.com/rizonesoft/Wobble/discussions
+    about: Ask how to drive Wobble from your tests, or suggest something it should emulate.
+  - name: Report a security vulnerability
+    url: https://github.com/rizonesoft/Wobble/security/advisories/new
+    about: Report security problems privately, never in a public issue.

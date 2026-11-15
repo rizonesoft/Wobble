@@ -1,17 +1,57 @@
-# Wobble
+<p align="center">
+  <img src="assets/brand/wobble-icon.svg" width="128" height="128" alt="Wobble icon">
+</p>
 
-Wobble is a CD, DVD and Blu-ray reader and writer drive emulator, used to test Windows optical disc software.
+<h1 align="center">Wobble</h1>
 
-It is a userspace process that presents an emulated optical drive as an iSCSI target. Windows attaches with its built-in iSCSI initiator, so the software under test sees an ordinary optical drive and talks to it through SPTI and IMAPI2. Wobble implements the SCSI MMC command set and a disc state model, will load drives and media from profile files captured from real hardware, and will inject faults on request.
+<p align="center">
+  <strong>A CD, DVD and Blu-ray drive emulator for testing Windows optical disc software.</strong><br>
+  Windows sees an ordinary optical drive. Your tests decide what is in it, and how it fails.
+</p>
 
-Out of scope: AACS, CSS and BD+, and physical-layer fidelity beyond a simple model.
+<p align="center">
+  <a href="https://github.com/rizonesoft/Wobble/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/rizonesoft/Wobble/ci.yml?branch=main&style=flat-square&labelColor=14121f&label=ci" alt="CI status"></a>
+  <img src="https://img.shields.io/badge/.NET-11-8f7cf8?style=flat-square&labelColor=14121f" alt=".NET 11">
+  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux-38d6ee?style=flat-square&labelColor=14121f" alt="Windows and Linux">
+  <img src="https://img.shields.io/badge/transport-iSCSI-38d6ee?style=flat-square&labelColor=14121f" alt="iSCSI transport">
+  <img src="https://img.shields.io/badge/status-pre--alpha-f7c56b?style=flat-square&labelColor=14121f" alt="Pre-alpha">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-f472b6?style=flat-square&labelColor=14121f" alt="GPL-3.0"></a>
+</p>
 
-## Status
+<p align="center">
+  <a href="#what-works-today">What works</a> ·
+  <a href="#run">Run</a> ·
+  <a href="#control-api">Control API</a> ·
+  <a href="#test">Test</a> ·
+  <a href="#roadmap">Roadmap</a> ·
+  <a href="CONTRIBUTING.md">Contributing</a>
+</p>
 
-- Transport proven (2026-11-15): Windows 11 accepts an iSCSI optical drive. See [the proof](docs/proof/2026-11-15-iscsi-optical-drive.md).
-- Design: [docs/specs/2026-11-15-wobble-design.md](docs/specs/2026-11-15-wobble-design.md).
-- Step 1, read support: done. Wobble serves an ISO as a finalised CD-ROM or DVD-ROM data disc; Windows gives it a drive letter, mounts and reads it, and IMAPI2 lists the drive.
-- Next: the raw CD model, write support, fault injection, then profiles and the capture tool. See [the plan](docs/plans/2026-11-15-write-support.md).
+Wobble is a userspace process that presents an emulated optical drive as an iSCSI target. Windows attaches with its built-in iSCSI initiator, so the software under test sees an ordinary optical drive and talks to it through SPTI and IMAPI2. Wobble implements the SCSI MMC command set and a disc state model. It is named after the wobble of a recordable disc's pregroove, the signal a drive follows to find its place.
+
+Out of scope: AACS, CSS and BD+, and physical-layer fidelity beyond a simple timing and error model.
+
+## Why it exists
+
+- **No hardware, no blank discs.** A burn test runs in seconds on any Windows machine and wastes nothing.
+- **A real drive as far as Windows can tell.** No filter driver and no kernel code: the Windows initiator and CD-ROM class driver do what they do for hardware. See [the proof](docs/proof/2026-11-15-iscsi-optical-drive.md).
+- **Faults on request, the same way every time.** A write error at one address, a disc ejected mid-burn, a connection dropped during the final flush: declared as rules, with no randomness (planned, see the roadmap).
+- **Every command on record.** The trace shows each CDB Windows or your software sent, with its status and sense, for assertions.
+
+## What works today
+
+Wobble is pre-alpha. Reading works; writing, fault injection, profiles and the control app are planned in detail and not built yet.
+
+| Area | State |
+| ---- | ----- |
+| iSCSI target, Windows initiator attach over loopback | Works |
+| CD-ROM and DVD-ROM from an ISO: mounts, reads, IMAPI2 lists the drive | Works |
+| Raw CD model: cue sheets, 2352-byte sectors, Q subchannel, READ CD | Works in unit tests |
+| CD-R and CD-RW writing (track-at-once, session-at-once, raw) | Planned |
+| DVD and Blu-ray recordable media | Planned |
+| Fault injection | Planned |
+| Drive and media profiles, the capture tool | Planned |
+| The Wobble control app | Designed ([`design/SPEC.md`](design/SPEC.md)), not built |
 
 ## Layout
 
@@ -24,6 +64,8 @@ Out of scope: AACS, CSS and BD+, and physical-layer fidelity beyond a simple mod
 | `tests/Wobble.Tests` | Unit tests: byte-exact MMC responses and the iSCSI target over loopback. |
 | `tests/Wobble.EndToEnd` | Windows tests through the real initiator, CDFS and IMAPI2. |
 | `tools/attach.ps1` | Connects the Windows iSCSI initiator to Wobble. |
+| `design/`, `assets/` | The interface specification, the icon and its renders. |
+| `todo/` | The build plan, section by section. |
 
 ## Run
 
@@ -55,18 +97,41 @@ HTTP JSON on `http://127.0.0.1:3261`:
 ## Test
 
 ```powershell
-dotnet test tests/Wobble.Tests        # anywhere
-dotnet test tests/Wobble.EndToEnd     # Windows, after tools\attach.ps1
+pwsh scripts/check.ps1              # build, unit tests, plan validation: anywhere
+pwsh scripts/check.ps1 -EndToEnd    # also the Windows tests, after tools\attach.ps1
 ```
 
 The end-to-end tests start `wobble` themselves on ports 3260 and 3261, so stop any other instance first.
 
-## Limits of step 1
+## Limits today
 
-- One finalised single-session, single-track data disc; no audio tracks, no multisession, no blank or rewritable media.
-- READ CD returns user data only (no headers, subchannel or C2).
+- A finalised disc only: no blank or rewritable media, and one session.
+- READ CD serves header, user data, EDC and ECC and P and Q subchannel; C2 error pointers and R to W are not modelled.
 - Mode pages are fixed: MODE SELECT is accepted and changes nothing.
 - REPORT KEY and other copy protection commands are refused (out of scope).
 - One iSCSI connection per session, no digests, no authentication; it listens on loopback only by default.
 - One initiator at a time: drive state such as a pending unit attention is not kept per initiator.
 - One read command transfers at most 32768 blocks (64 MiB).
+
+## Roadmap
+
+The live plan is [`todo/implementation-plan.md`](todo/implementation-plan.md), generated from the TODO files; the reasoning is in [the design](docs/specs/2026-11-15-wobble-design.md) and [the plan](docs/plans/2026-11-15-write-support.md).
+
+| Phase | What it delivers |
+| ----- | ---------------- |
+| 0 | Shared build settings, a formatting gate, Linux in CI |
+| 1 | The raw CD model finished: sessions, subchannel commands, CD-TEXT, raw reads through Windows |
+| 2 | CD-R and CD-RW writing: track-at-once, session-at-once, raw; CloneCD images |
+| 3 | DVD-R, DVD-RW, DVD+R and DVD+RW, burned through SPTI and IMAPI2 |
+| 4 | BD-ROM, BD-R and BD-RE |
+| 5 | Fault injection: rules, triggers, transport faults |
+| 6 | Drive and media profiles, `wobble-capture` |
+| 7 | The Wobble control app, downloads and the user guide |
+
+## Contributing and security
+
+How to build, test and propose a change is in [`CONTRIBUTING.md`](CONTRIBUTING.md). Report a vulnerability privately, as [`SECURITY.md`](SECURITY.md) describes.
+
+## License
+
+Wobble is free software under the [GNU General Public License v3.0](LICENSE). Copyright Rizonesoft.

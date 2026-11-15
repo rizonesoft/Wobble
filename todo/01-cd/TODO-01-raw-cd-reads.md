@@ -143,7 +143,7 @@ A cue sheet's `TITLE` and `PERFORMER` lines are CD-TEXT on a real disc. READ TOC
 
 - [ ] Add `CdText.Build(Media)` producing title (pack type `80h`) and performer (`81h`) packs for the disc and each track, 12 text bytes per pack with sequence numbers and character positions, plus the size information packs (`8Fh`) in `src/Wobble.Core/CdText.cs` (MMC-3 annex J). Done when: a test decodes the packs back to the strings.
 - [ ] Append the CRC-16 (polynomial `x^16 + x^12 + x^5 + 1`, inverted) to each pack. Done when: the test recomputes it for every pack.
-- [ ] Return the packs for READ TOC format 5 in `OpticalDrive.ReadToc`, and `05/24/00` when the disc carries no text. Done when: both cases are tested.
+- [ ] Return the packs for READ TOC format 5 in `OpticalDrive.ReadToc`, and `05/24/00` when the disc carries no text. Done when: a test in `CdTextTests` proves it.
 - [ ] Add `tests/Wobble.Tests/CdTextTests.cs`. Done when: it passes and fails if the pack sequence number is not incremented.
 - [ ] Commit: `core: serve CD-TEXT from the cue sheet`
 

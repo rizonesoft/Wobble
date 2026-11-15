@@ -84,7 +84,7 @@ Burners read the physical format, the manufacturer's pre-recorded information an
 - [ ] Answer format `0Eh` (pre-recorded information in the lead-in) for DVD-R and DVD-RW with the manufacturer id from the media model. Done when: the id `MCC 03RG20` round trips.
 - [ ] Answer format `11h` (ADIP) for DVD+R and DVD+RW with the disc manufacturer and media type id. Done when: `MCC` and `004` round trip.
 - [ ] Answer format `0Fh` (unique disc identifier) and `FFh` (the list of supported formats with their readable flags). Done when: the list names exactly the formats that answer for the loaded disc.
-- [ ] Refuse a format the loaded media does not have with `05/24/00` and a layer number above the disc's with `05/24/00`. Done when: tested.
+- [ ] Refuse a format the loaded media does not have with `05/24/00` and a layer number above the disc's with `05/24/00`. Done when: a test in `DvdMediaTests` asserts it and fails when the behaviour is removed.
 - [ ] Add the cases to `tests/Wobble.Tests/DvdMediaTests.cs`. Done when: they pass and fail if the book type is hard-coded to DVD-ROM.
 - [ ] Commit: `core: answer READ DISC STRUCTURE for recordable DVD`
 
@@ -103,10 +103,10 @@ Write-once DVD is written front to back: disc at once or incrementally on DVD-R,
 1. Extend `OpticalDrive.Write.cs` for 2048-byte DVD writes. Done when: a write at the NWA is stored and a write elsewhere is refused.
 2. Add the DVD closing functions. Done when: DVD-R and DVD+R discs can be left appendable or finalised.
 
-- [ ] Accept WRITE (10) and WRITE (12) of 2048-byte blocks on `DvdR` and `DvdPlusR` at the next writable address, refusing others with `05/21/02`. Done when: tested.
+- [ ] Accept WRITE (10) and WRITE (12) of 2048-byte blocks on `DvdR` and `DvdPlusR` at the next writable address, refusing others with `05/21/02`. Done when: a test in `DvdWriteOnceTests` asserts it and fails when the behaviour is removed.
 - [ ] Honour write type on DVD-R from mode page `05h`: disc at once (type 2) needs the track reserved or the whole image length, incremental (type 0) writes packets with no link loss at the model's level. Done when: both burn in a test.
 - [ ] Ignore mode page `05h` on DVD+R, as the format defines no write parameters. Done when: a burn succeeds with the page left at its default.
-- [ ] Implement RESERVE TRACK (`53h`) for DVD-R and READ TRACK INFORMATION with NWA, free blocks and last recorded address. Done when: tested.
+- [ ] Implement RESERVE TRACK (`53h`) for DVD-R and READ TRACK INFORMATION with NWA, free blocks and last recorded address. Done when: a test in `DvdWriteOnceTests` asserts it and fails when the behaviour is removed.
 - [ ] Implement CLOSE TRACK SESSION for DVD-R (functions 1 and 2) and DVD+R (1 close track, 2 close session, 5 and 6 finalise). Done when: a finalised disc reads disc status complete and refuses a further write with `05/30/05`.
 - [ ] Report sessions and borders in `OpticalDrive.ReadToc` formats 0 and 1 and `ReadDiscInformation` for multi-session DVD+R. Done when: a two-session disc lists both.
 - [ ] Add `tests/Wobble.Tests/DvdWriteOnceTests.cs`. Done when: it passes and fails if finalise leaves the disc appendable.
@@ -128,10 +128,10 @@ Rewritable DVD must be formatted before random writing, and software asks what f
 2. Model format progress on the injected clock. Done when: a background format reports progress in REQUEST SENSE.
 
 - [ ] Answer READ FORMAT CAPACITIES with the current capacity descriptor (unformatted, formatted or no media) and the formattable descriptors: type `00h` and `10h`/`15h` for DVD-RW, `26h` for DVD+RW. Done when: a test decodes each list.
-- [ ] Parse the FORMAT UNIT parameter list (header, one format descriptor) and refuse a missing FmtData bit, a format code other than 1, or a type the media does not list, with `05/26/00`. Done when: each refusal is tested.
+- [ ] Parse the FORMAT UNIT parameter list (header, one format descriptor) and refuse a missing FmtData bit, a format code other than 1, or a type the media does not list, with `05/26/00`. Done when: a test in `FormatTests` proves it.
 - [ ] Format DVD-RW full (`10h`) and quick (`15h`) into restricted overwrite, and DVD+RW (`26h`) with background formatting. Done when: READ FORMAT CAPACITIES then reports formatted media and the profile is the formatted one.
 - [ ] Report `02/04/04` (format in progress) with a progress indication in the sense-key-specific bytes while the modelled format runs with the Immed bit. Done when: a fake-clock test sees progress rise to complete.
-- [ ] Refuse FORMAT UNIT on write-once and pressed media with `05/30/06`. Done when: tested.
+- [ ] Refuse FORMAT UNIT on write-once and pressed media with `05/30/06`. Done when: a test in `FormatTests` asserts it and fails when the behaviour is removed.
 - [ ] Add `tests/Wobble.Tests/FormatTests.cs`. Done when: it passes and fails if the capacity descriptor stays unformatted.
 - [ ] Commit: `core: add READ FORMAT CAPACITIES and FORMAT UNIT`
 
@@ -151,9 +151,9 @@ DVD-RW has two personalities: sequential, like DVD-R, and restricted overwrite a
 2. Extend `OpticalDrive.Blank` to DVD-RW. Done when: a blanked disc is sequential and empty.
 
 - [ ] Write `DvdRwSequential` as DVD-R, including close and finalise. Done when: the DVD-R tests run against it.
-- [ ] Write `DvdRwRestricted` at any address that is a multiple of 16 blocks inside the formatted area, and refuse others with `05/21/02`. Done when: tested with an aligned and an unaligned write.
+- [ ] Write `DvdRwRestricted` at any address that is a multiple of 16 blocks inside the formatted area, and refuse others with `05/21/02`. Done when: a test in `DvdRwTests` proves it with an aligned and an unaligned write.
 - [ ] Implement CLOSE TRACK SESSION (`5Bh`) function 2 on restricted overwrite to close the border. Done when: READ DISC INFORMATION reports a complete session.
-- [ ] Blank DVD-RW with BLANK types 0 and 1, returning it to `DvdRwSequential` and state blank. Done when: tested, and BLANK on DVD+RW is refused with `05/30/05` because that format is erased by formatting.
+- [ ] Blank DVD-RW with BLANK types 0 and 1, returning it to `DvdRwSequential` and state blank. Done when: a test in `DvdRwTests` proves it, and BLANK on DVD+RW is refused with `05/30/05` because that format is erased by formatting.
 - [ ] Add `tests/Wobble.Tests/DvdRwTests.cs`. Done when: it passes and fails if the alignment check is removed.
 - [ ] Commit: `core: write and blank DVD-RW`
 
@@ -173,7 +173,7 @@ DVD+RW is written anywhere once formatting has started, and is never finalised. 
 2. Implement its close functions. Done when: function 0 stops the background format and the disc stays writable.
 
 - [ ] Accept WRITE (10) and WRITE (12) at any address inside the formatted capacity of `DvdPlusRw`. Done when: a test writes block 1 000 000 first and block 0 second and reads both.
-- [ ] Refuse a write to unformatted DVD+RW with `05/30/10` (medium not formatted). Done when: tested.
+- [ ] Refuse a write to unformatted DVD+RW with `05/30/10` (medium not formatted). Done when: a test in `DvdPlusRwTests` asserts it and fails when the behaviour is removed.
 - [ ] Implement CLOSE TRACK SESSION (`5Bh`) functions 0 (stop background format), 2 and 3 (compatibility close) for DVD+RW. Done when: after function 0 the format progress stops and writes still succeed.
 - [ ] Report one track covering the formatted capacity in `ReadTrackInformation` and `ReadToc`. Done when: a test reads track 1 with the formatted capacity as its length.
 - [ ] Add `tests/Wobble.Tests/DvdPlusRwTests.cs`. Done when: it passes and fails if a second write to the same block does not replace the first.
@@ -195,7 +195,7 @@ IMAPI2 reads the write speed descriptors and sets the speed with SET STREAMING b
 2. Add `SetStreaming` (`B6h`). Done when: the chosen speed is reported back as current.
 
 - [ ] Return write speed descriptors (GET PERFORMANCE type `03h`) with the media's speeds, the end LBA and the current-speed flag. Done when: a blank DVD+R lists 5 540, 11 080 and 22 160 kB/s.
-- [ ] Return nominal performance (type `00h`) for write as well as read when the Write bit is set. Done when: tested.
+- [ ] Return nominal performance (type `00h`) for write as well as read when the Write bit is set. Done when: a test in `StreamingTests` asserts it and fails when the behaviour is removed.
 - [ ] Parse the SET STREAMING performance descriptor (start and end LBA, read and write size and time) and store the write speed, refusing a descriptor shorter than 28 bytes with `05/1A/00`. Done when: the speed reads back from GET PERFORMANCE and mode page `2Ah`.
 - [ ] Accept the streaming bit of WRITE (12) (`AAh`) and READ (12) (`A8h`). Done when: a write with it set succeeds.
 - [ ] Add `tests/Wobble.Tests/StreamingTests.cs`. Done when: it passes and fails if SET STREAMING is accepted but not stored.
@@ -218,7 +218,7 @@ CloneCD images describe CDs only. The design names a Wobble disc file (sessions,
 
 - [ ] Define the format in `docs/disc-file.md`: a JSON header (`kind`, `state`, `capacityBlocks`, `manufacturerId`, `sessions`, `tracks`, `format`) beside a `.bin` of 2048-byte blocks with a written-range list. Done when: the document states every field and its type.
 - [ ] Write the header and data through temporary names and a rename in `DiscFile.Save`. Done when: a failed save leaves no header. Cheaper substitute: writing in place.
-- [ ] Load it in `DiscFile.Load`, refusing an unknown `kind`, a range beyond capacity and a missing `.bin`, each naming the file and field. Done when: tested.
+- [ ] Load it in `DiscFile.Load`, refusing an unknown `kind`, a range beyond capacity and a missing `.bin`, each naming the file and field. Done when: a test in `DiscFileTests` asserts it and fails when the behaviour is removed.
 - [ ] Open `.wobble` in `Media.Open` and save non-CD media through `POST /media/save`. Done when: a control API test saves a DVD+R and reinserts it appendable.
 - [ ] Export a finalised single-track disc as a plain ISO with `POST /media/save {"format": "iso"}`, refusing other discs with 409. Done when: the ISO's bytes equal what was written.
 - [ ] Add `tests/Wobble.Tests/DiscFileTests.cs`. Done when: it passes and fails if the written-range list is dropped.
@@ -239,9 +239,9 @@ DVD-R DL and DVD+R DL change the capacity, the physical format answer and the la
 1. Model two layers in `Media`. Done when: capacity, layer 0 size and the layer break are reported.
 2. Accept the layer break commands. Done when: SEND DISC STRUCTURE sets the layer 0 size on a blank disc.
 
-- [ ] Add `LayerBreak` to writable DVD media and report two layers and opposite track path in READ DISC STRUCTURE format `00h`. Done when: tested for both dual layer kinds.
+- [ ] Add `LayerBreak` to writable DVD media and report two layers and opposite track path in READ DISC STRUCTURE format `00h`. Done when: a test in `DualLayerTests` proves it for both dual layer kinds.
 - [ ] Answer READ DISC STRUCTURE format `20h` (layer capacity) and accept SEND DISC STRUCTURE (`BFh`) format `20h` on blank DVD+R DL and `23h` on DVD-R DL. Done when: a set layer 0 size reads back, and a set on a written disc is refused with `05/2C/00`.
-- [ ] Report feature `003Bh` and `0033h` (layer jump recording) current as the media requires. Done when: tested.
+- [ ] Report feature `003Bh` and `0033h` (layer jump recording) current as the media requires. Done when: a test in `DualLayerTests` asserts it and fails when the behaviour is removed.
 - [ ] Write across the layer break as one address space in `OpticalDrive.Write.cs`. Done when: a burn that crosses it reads back identical.
 - [ ] Add `tests/Wobble.Tests/DualLayerTests.cs`. Done when: it passes and fails if the layer count is reported as one.
 - [ ] Commit: `core: add dual-layer DVD media`

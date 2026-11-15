@@ -51,9 +51,9 @@ A small console tool with three verbs. The shape comes first so each capture sec
 2. List drives. Done when: `wobble-capture list` prints each optical drive's letter, vendor and product.
 
 - [ ] Create `src/Wobble.Capture/Wobble.Capture.csproj` (assembly name `wobble-capture`, Windows only) referencing `Wobble.Spti` and `Wobble.Profiles`, and add it to `Wobble.slnx`. Done when: it builds.
-- [ ] Parse `list`, `drive <letter> [--out <file>]`, `media <letter> [--out <file>]` and `trace <letter> --script <file> [--out <file>]` in `src/Wobble.Capture/Program.cs`, exiting 2 with usage for anything else. Done when: tested by running the built tool.
+- [ ] Parse `list`, `drive <letter> [--out <file>]`, `media <letter> [--out <file>]` and `trace <letter> --script <file> [--out <file>]` in `src/Wobble.Capture/Program.cs`, exiting 2 with usage for anything else. Done when: a test in `CaptureCliTests` proves it by running the built tool.
 - [ ] Implement `list` over the drive letters whose type is CD-ROM, sending INQUIRY to each. Done when: against the Wobble drive it prints `WOBBLE`.
-- [ ] Refuse an existing `--out` file unless `--overwrite` is given. Done when: tested. Cheaper substitute: overwriting a capture someone made by hand.
+- [ ] Refuse an existing `--out` file unless `--overwrite` is given. Done when: a test in `CaptureCliTests` asserts it and fails when the behaviour is removed. Cheaper substitute: overwriting a capture someone made by hand.
 - [ ] Commit: `capture: add the wobble-capture tool`
 
 **Test checkpoint:** `dotnet test tests/Wobble.EndToEnd --filter "FullyQualifiedName~CaptureCliTests"` prints `Passed!` with no failed test, on a host where `tools/attach.ps1` has run.
@@ -95,8 +95,8 @@ The media profile is what the drive reports about the disc in it: kind, state, m
 2. Prove it against Wobble. Done when: a captured blank DVD+R equals the generic profile it was inserted from.
 
 - [ ] Read the current profile from GET CONFIGURATION and the state from READ DISC INFORMATION. Done when: a blank CD-R captures as profile `0x09`, state `blank`.
-- [ ] Read the manufacturer id from the ATIP (CD), READ DISC STRUCTURE `0Eh` or `11h` (DVD) or the BD disc information. Done when: tested for one disc of each family.
-- [ ] Read the capacity from READ TRACK INFORMATION free blocks or READ FORMAT CAPACITIES, and write speeds from GET PERFORMANCE type `03h`. Done when: tested.
+- [ ] Read the manufacturer id from the ATIP (CD), READ DISC STRUCTURE `0Eh` or `11h` (DVD) or the BD disc information. Done when: a test in `CaptureMediaTests` proves it for one disc of each family.
+- [ ] Read the capacity from READ TRACK INFORMATION free blocks or READ FORMAT CAPACITIES, and write speeds from GET PERFORMANCE type `03h`. Done when: a test in `CaptureMediaTests` asserts it and fails when the behaviour is removed.
 - [ ] Optionally dump a finalised disc to an image beside the profile with `--image`, as ISO for one data track and CCD/IMG/SUB for other CDs. Done when: the dumped image inserts into Wobble and reads identical.
 - [ ] Add `tests/Wobble.EndToEnd/CaptureMediaTests.cs`. Done when: it passes and fails if the state is not read.
 - [ ] Commit: `capture: capture a media profile`

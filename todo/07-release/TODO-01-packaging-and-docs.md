@@ -33,7 +33,7 @@ title: "TODO-01 -- Packaging, Releases and Documentation"
 | ----- | ------- | ----------- | ---------- | ------ |
 | 1 | §1 | Version numbers and the version command | -- | [ ] |
 | 2 | §2 | Self-contained downloads | §1 | [ ] |
-| 3 | §3 | The test library as a NuGet package | §1, D04 T01 §6 | [ ] |
+| 3 | §3 | The test library as a NuGet package | §2, D04 T01 §6 | [ ] |
 | 4 | §4 | The user guide | §3, D05 T02 §4 | [ ] |
 | 5 | §5 | Releases from a tag | §2, §4 | [ ] |
 
@@ -93,7 +93,7 @@ A tester should not need the .NET SDK. One script publishes single-file, self-co
 2. Let the library find a published `wobble`. Done when: `EmulatorProcess.StartAsync` takes a path or finds `wobble` on `PATH`.
 
 - [ ] Set `IsPackable`, `PackageId`, `Description`, `PackageLicenseExpression` and `RepositoryUrl` in `src/Wobble.Testing/Wobble.Testing.csproj` and `src/Wobble.Spti/Wobble.Spti.csproj`. Done when: `dotnet pack -c Release` writes `Wobble.Testing.0.1.0.nupkg`.
-- [ ] Resolve the executable in `EmulatorProcess.StartAsync` from an explicit path, then the `WOBBLE_EXE` variable, then `PATH`, and fail with a message naming all three when none is found. Done when: tested for each case.
+- [ ] Resolve the executable in `EmulatorProcess.StartAsync` from an explicit path, then the `WOBBLE_EXE` variable, then `PATH`, and fail with a message naming all three when none is found. Done when: the section's Test checkpoint proves it for each case.
 - [ ] Add XML documentation to the public members of `Wobble.Testing` and enable `GenerateDocumentationFile`. Done when: the build has no missing-documentation warning.
 - [ ] Add a sample test project under `samples/FirstTest` that references the package from a local feed and reads a disc. Done when: `dotnet test samples/FirstTest` passes on the attached host.
 - [ ] Commit: `testing: package Wobble.Testing for other projects`

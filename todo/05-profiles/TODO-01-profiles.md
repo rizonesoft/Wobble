@@ -54,7 +54,7 @@ The profile format is shared by the emulator and the capture tool, so it gets it
 - [ ] Create `src/Wobble.Profiles/Wobble.Profiles.csproj`, add it to `Wobble.slnx` and reference it from `Wobble.Host`. Done when: the solution builds.
 - [ ] Add `DriveProfile` (`identity`, `inquiry`, `profiles`, `features`, `modePages` with `default` and `changeable`, `speeds`, `quirks`, `vendorCommands`) and `MediaProfile` (`profile`, `state`, `manufacturerId`, `capacityBlocks`, `writeSpeedsKbps`, `image`) in `src/Wobble.Profiles/`. Done when: the design's two JSON examples deserialize.
 - [ ] Keep captured bytes as hex strings in the file and `byte[]` in memory, through a converter in `src/Wobble.Profiles/HexConverter.cs`. Done when: a load and save round trip is byte-identical.
-- [ ] Refuse a wrong `kind`, an unknown property, odd-length or non-hex strings, a feature whose length byte disagrees with its data, and a mode page whose length byte disagrees, naming the file and JSON path. Done when: each refusal is tested.
+- [ ] Refuse a wrong `kind`, an unknown property, odd-length or non-hex strings, a feature whose length byte disagrees with its data, and a mode page whose length byte disagrees, naming the file and JSON path. Done when: a test in `ProfileLoadTests` proves it.
 - [ ] Document the format in `docs/profiles.md`. Done when: every property is described with its type and an example.
 - [ ] Add `tests/Wobble.Tests/ProfileLoadTests.cs`. Done when: it passes and fails if unknown properties are accepted.
 - [ ] Commit: `profiles: add profile types with a strict JSON loader`
@@ -77,7 +77,7 @@ A profile is replayed exactly: the bytes a real drive returned are the bytes Wob
 - [ ] Add `IDriveProfile` in `src/Wobble.Core/DriveProfile.cs` (inquiry bytes, VPD pages, feature payloads, mode pages, speeds per media profile, quirks) implemented by `Wobble.Profiles`. Done when: `Wobble.Core` still has no reference to JSON.
 - [ ] Answer INQUIRY and its VPD pages from the profile's bytes in `OpticalDrive.Inquiry`. Done when: a profile's vendor and revision reach an INQUIRY test.
 - [ ] Answer GET CONFIGURATION in `OpticalDrive.GetConfiguration` from the profile's features, setting each feature's current bit and the current profile from the loaded media by the rules in MMC-5 5.3. Done when: a captured feature list with a blank CD-R loaded marks the CD write features current and the DVD ones not.
-- [ ] Answer MODE SENSE default and changeable values in `OpticalDrive.ModeSense` from the profile and keep current values per drive, with MODE SELECT limited by the changeable mask. Done when: tested.
+- [ ] Answer MODE SENSE default and changeable values in `OpticalDrive.ModeSense` from the profile and keep current values per drive, with MODE SELECT limited by the changeable mask. Done when: a test in `DriveProfileTests` asserts it and fails when the behaviour is removed.
 - [ ] Refuse media the profile's `profiles` list does not include with `05/30/00` when it is inserted and read. Done when: a CD-only drive profile refuses a DVD.
 - [ ] Express the generic drive as `profiles/drives/generic-bd-re.json` and load it by default, deleting the hand-built `Features()` and `ModePages()` bodies. Done when: every existing unit test passes against the profile. Cheaper substitute: keeping both paths, which lets them drift.
 - [ ] Add `tests/Wobble.Tests/DriveProfileTests.cs`. Done when: it passes and fails if current bits are replayed from the capture.
@@ -98,9 +98,9 @@ A test picks its drive. `PUT /drive` swaps the profile and the drive announces t
 1. Add `PUT /drive` and `GET /drive` to `src/Wobble.Host/Program.cs`. Done when: a profile path or inline JSON loads.
 2. Add `--drive` and the `WobbleControl` call. Done when: a test changes drive in one call.
 
-- [ ] Add `PUT /drive` taking `{"profile": "<path>"}` or the profile itself, answering 400 with the loader's message and keeping the old drive on failure. Done when: tested both ways.
+- [ ] Add `PUT /drive` taking `{"profile": "<path>"}` or the profile itself, answering 400 with the loader's message and keeping the old drive on failure. Done when: a test in `ControlApiTests` proves it both ways.
 - [ ] Raise unit attention `06/29/00` and keep the loaded disc when the profile changes. Done when: the first command after the change is a check condition and the disc is still there.
-- [ ] Add `GET /drive` returning the identity and the supported profiles. Done when: tested.
+- [ ] Add `GET /drive` returning the identity and the supported profiles. Done when: a test in `ControlApiTests` asserts it and fails when the behaviour is removed.
 - [ ] Add `--drive <file>` to the command line and `SetDriveAsync` to `src/Wobble.Testing/WobbleControl.cs`. Done when: an end-to-end test loads a profile and Windows shows the new product name.
 - [ ] Document the route in `README.md`. Done when: the Control API list names `PUT /drive` and `GET /drive`.
 - [ ] Commit: `host: load drive profiles through the control API`
@@ -120,7 +120,7 @@ Odd media is a media profile, not a fault. Media profiles also give tests named 
 1. Insert media from a profile in `PUT /media`. Done when: a media profile yields a disc with its state, manufacturer, capacity and speeds.
 2. Ship generic profiles under `profiles/`. Done when: one exists for every supported media kind.
 
-- [ ] Accept `{"profile": "<path>"}` in `PUT /media` and build the `Media` from the profile, opening `image` relative to the profile file. Done when: tested for a blank and a written profile.
+- [ ] Accept `{"profile": "<path>"}` in `PUT /media` and build the `Media` from the profile, opening `image` relative to the profile file. Done when: a test in `MediaProfileTests` proves it for a blank and a written profile.
 - [ ] Add `profiles/media/` with generic CD-R, CD-RW, DVD-R, DVD-RW, DVD+R, DVD+RW, DVD-R DL, DVD+R DL, BD-R and BD-RE profiles. Done when: a test loads every file in the folder.
 - [ ] Add `GET /profiles` listing the drive and media profiles found under the profile folder (`--profiles <dir>`, default beside the executable). Done when: the list names each bundled file with its kind.
 - [ ] Copy `profiles/` to the build output of `Wobble.Host`. Done when: `dotnet run --project src/Wobble.Host` serves the list.
@@ -145,8 +145,8 @@ CarbonCD sends vendor reads (`D8h`, `D4h` in 10 and 12 byte forms, `D5h`) that b
 
 - [ ] Add `vendorCommands` entries of the form `{"opcode": "0xD8", "behaviour": "read-cdda-d8"}` to `DriveProfile` and dispatch them in `OpticalDrive.Dispatch` before the invalid opcode answer. Done when: a profile without the entry still refuses `D8h`.
 - [ ] Implement `read-cdda-d8` (12 byte, LBA and length, subcode selector in byte 10), `read-cdda-d4` and `read-cdda-d5` over `ReadCdSectors`, from the layouts in `D:\CarbonCD\MMCReader.cpp`. Done when: each returns the same bytes as the matching READ CD.
-- [ ] Add `quirks.readTocFormat2` (the drive refuses the full TOC when false) and apply it in `ReadToc`. Done when: tested both ways.
-- [ ] Refuse an unknown `behaviour` name at profile load. Done when: tested.
+- [ ] Add `quirks.readTocFormat2` (the drive refuses the full TOC when false) and apply it in `ReadToc`. Done when: a test in `VendorCommandTests` proves it both ways.
+- [ ] Refuse an unknown `behaviour` name at profile load. Done when: a test in `VendorCommandTests` asserts it and fails when the behaviour is removed.
 - [ ] Add `profiles/drives/generic-plextor-style.json` enabling the vendor reads. Done when: it loads in a test.
 - [ ] Add `tests/Wobble.Tests/VendorCommandTests.cs`. Done when: it passes and fails if the vendor table is consulted without a profile entry.
 - [ ] Commit: `core: add profile quirks and vendor read commands`
@@ -168,7 +168,7 @@ A trace captured from real hardware is the reference a profile is judged by. Sav
 
 - [ ] Add `src/Wobble.Profiles/TraceFile.cs`: one JSON object per line with CDB, lengths, status, sense, time and the data-in bytes as hex up to 4 KiB plus a SHA-256 of the whole. Done when: a save and load round trip is equal.
 - [ ] Record data-in digests in `TraceEntry` when the drive is started with `--trace-data`. Done when: the trace of an INQUIRY carries its 36 bytes.
-- [ ] Add the `trace diff <a> <b>` verb to `src/Wobble.Host/Program.cs`, comparing by command order and reporting the first differing field of each differing command; exit 0 when equal, 1 when different, 2 on a bad file. Done when: tested for all three.
+- [ ] Add the `trace diff <a> <b>` verb to `src/Wobble.Host/Program.cs`, comparing by command order and reporting the first differing field of each differing command; exit 0 when equal, 1 when different, 2 on a bad file. Done when: a test in `TraceFileTests` proves it for all three.
 - [ ] Add `--ignore-time` (default on) and `--ignore <opcode>` options. Done when: polling commands can be excluded.
 - [ ] Document the trace file in `docs/profiles.md`. Done when: the document shows a line and each field.
 - [ ] Commit: `host: save traces and compare them`

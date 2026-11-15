@@ -53,7 +53,7 @@ A rule is data: a trigger, an action and a count. Parsing it strictly means a ty
 
 - [ ] Add `FaultRule` (`When`: opcode, LBA range, nth, after blocks written, at time; `Do`: sense, delay, buffer underrun, eject, swap media, not ready, drop connection; `Times`) in `src/Wobble.Core/Faults/FaultRule.cs`. Done when: `dotnet build` succeeds.
 - [ ] Parse the JSON list in `FaultScript.Parse`, taking opcodes by name (`WRITE_10`, `READ_10`, `SYNCHRONIZE_CACHE` and the rest of a table in `src/Wobble.Core/Opcodes.cs`) or as hex. Done when: the example in the design parses.
-- [ ] Refuse an unknown property, an unknown opcode name, a sense that is not `KK/AA/QQ`, `lbaFrom` above `lbaTo`, `times` below 1, and a rule with no action, each with a message holding the rule's index and the property. Done when: each refusal is tested. Cheaper substitute: ignoring unknown properties.
+- [ ] Refuse an unknown property, an unknown opcode name, a sense that is not `KK/AA/QQ`, `lbaFrom` above `lbaTo`, `times` below 1, and a rule with no action, each with a message holding the rule's index and the property. Done when: a test in `FaultScriptTests` proves it. Cheaper substitute: ignoring unknown properties.
 - [ ] Add `tests/Wobble.Tests/FaultScriptTests.cs`. Done when: it passes and fails if unknown properties are accepted.
 - [ ] Commit: `core: parse fault scripts`
 
@@ -75,7 +75,7 @@ Most faults are answers the drive gives: a sense code, not ready, a disc that go
 - [ ] Match opcode, LBA range overlap, the nth command that matches the rule's other conditions, total blocks written so far, and emulator time from the injected `TimeProvider`, in `FaultEngine.Match`. Done when: one test per trigger passes.
 - [ ] Return the rule's sense as a check condition without running the command. Done when: a WRITE (10) over LBA 120 000 fails with `03/0C/00` once and succeeds the second time with `times` 1.
 - [ ] Implement `ejectMedia`, `swapMedia` (an image path) and `notReady` (sense `02/04/00` until the script is replaced) in `OpticalDrive`. Done when: after `ejectMedia` the next command gets `02/3A/00` and the media event is set.
-- [ ] Implement `bufferUnderrun`: fail the write with `03/0C/09` and leave the track damaged in READ TRACK INFORMATION. Done when: tested on a track-at-once burn.
+- [ ] Implement `bufferUnderrun`: fail the write with `03/0C/09` and leave the track damaged in READ TRACK INFORMATION. Done when: a test in `FaultEngineTests` proves it on a track-at-once burn.
 - [ ] Apply rules in list order and decrement `times` only when a rule fires. Done when: a test with two rules on the same opcode sees the first exhaust before the second fires.
 - [ ] Add `tests/Wobble.Tests/FaultEngineTests.cs`. Done when: it passes and fails if `times` is not decremented.
 - [ ] Commit: `core: fire fault rules in the drive`
@@ -117,11 +117,11 @@ Tests load faults per test through the control API, as the design says, and need
 1. Add `/faults` routes to `src/Wobble.Host/Program.cs`. Done when: `PUT` replaces the script, `GET` returns it with fire counts and `DELETE` clears it.
 2. Add them to `WobbleControl`. Done when: a test sets and reads faults in two calls.
 
-- [ ] Add `PUT /faults` taking the JSON list and answering 400 with the parser's message for a bad script, leaving the old script in place. Done when: tested for a good and a bad script.
-- [ ] Add `GET /faults` returning each rule with `fired` and `remaining`, and `DELETE /faults`. Done when: tested.
+- [ ] Add `PUT /faults` taking the JSON list and answering 400 with the parser's message for a bad script, leaving the old script in place. Done when: a test in `ControlApiTests` proves it for a good and a bad script.
+- [ ] Add `GET /faults` returning each rule with `fired` and `remaining`, and `DELETE /faults`. Done when: a test in `ControlApiTests` asserts it and fails when the behaviour is removed.
 - [ ] Clear the script in `POST /reset`. Done when: `GET /faults` returns an empty list after a reset.
 - [ ] Add `SetFaultsAsync`, `FaultsAsync` and `ClearFaultsAsync` to `src/Wobble.Testing/WobbleControl.cs`, with a `FaultRuleStatus` record. Done when: an end-to-end test uses all three.
-- [ ] Add `--faults <file>` to the command line, refusing an unreadable or invalid file with exit 2. Done when: tested.
+- [ ] Add `--faults <file>` to the command line, refusing an unreadable or invalid file with exit 2. Done when: a test in `ControlApiTests` asserts it and fails when the behaviour is removed.
 - [ ] Document the routes and the rule format in `README.md`. Done when: the README shows the design's example and every trigger and action.
 - [ ] Commit: `host: load, read and clear fault scripts`
 

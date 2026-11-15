@@ -112,15 +112,32 @@ Sections: 10 | Checklist items: 64
 
 ### Phase 7: Control interface and release
 
-Sections: 5 | Checklist items: 27
+Sections: 22 | Checklist items: 129
 
-| Status | Reference  | Deliverable                             | Needs                         | Items |
-| ------ | ---------- | --------------------------------------- | ----------------------------- | ----- |
-| [ ]    | D07 T01 §1 | Version numbers and the version command | none                          | 5     |
-| [ ]    | D07 T01 §2 | Self-contained downloads                | none                          | 5     |
-| [ ]    | D07 T01 §3 | The test library as a NuGet package     | windows-host, iscsi-initiator | 5     |
-| [ ]    | D07 T01 §4 | The user guide                          | windows-host, iscsi-initiator | 7     |
-| [ ]    | D07 T01 §5 | Releases from a tag                     | none                          | 5     |
+| Status | Reference   | Deliverable                                          | Needs                         | Items |
+| ------ | ----------- | ---------------------------------------------------- | ----------------------------- | ----- |
+| [ ]    | D06 T01 §1  | Control API additions the interface needs            | none                          | 6     |
+| [ ]    | D06 T01 §2  | App project, Groove theme and headless tests         | none                          | 7     |
+| [ ]    | D06 T01 §3  | Emulator session, title bar and status bar           | none                          | 6     |
+| [ ]    | D06 T01 §4  | Settings dialog and stored settings                  | none                          | 6     |
+| [ ]    | D06 T01 §5  | Disc column: figure, state, facts and tracks         | none                          | 7     |
+| [ ]    | D06 T01 §6  | Disc actions: insert, blank, eject, save and drop    | none                          | 7     |
+| [ ]    | D06 T01 §7  | Trace table: live, virtualised, follow and pause     | none                          | 7     |
+| [ ]    | D06 T01 §8  | Trace filter, detail panel and export                | none                          | 7     |
+| [ ]    | D06 T01 §9  | Fault rule list: toggle, order, load, save and clear | none                          | 7     |
+| [ ]    | D06 T01 §10 | Fault rule editor                                    | none                          | 6     |
+| [ ]    | D06 T01 §11 | Drive menu and drive profiles                        | none                          | 5     |
+| [ ]    | D06 T01 §12 | Attach to Windows from the app                       | none                          | 5     |
+| [ ]    | D06 T01 §13 | Tray icon, its states and its menu                   | none                          | 6     |
+| [ ]    | D06 T01 §14 | Keyboard, focus and automation names                 | none                          | 5     |
+| [ ]    | D06 T01 §15 | The window compared with the approved rendering      | windows-host, display-session | 5     |
+| [ ]    | D06 T01 §16 | A burn with a fault, watched in the app              | windows-host, iscsi-initiator | 5     |
+| [ ]    | D07 T01 §1  | Version numbers and the version command              | none                          | 5     |
+| [ ]    | D07 T01 §2  | Self-contained downloads                             | none                          | 5     |
+| [ ]    | D06 T01 §17 | The app in the downloads                             | none                          | 5     |
+| [ ]    | D07 T01 §3  | The test library as a NuGet package                  | windows-host, iscsi-initiator | 5     |
+| [ ]    | D07 T01 §4  | The user guide                                       | windows-host, iscsi-initiator | 7     |
+| [ ]    | D07 T01 §5  | Releases from a tag                                  | none                          | 5     |
 
 ### Phase 99: Manual, operator only
 
@@ -130,6 +147,6 @@ Sections: 1 | Checklist items: 5
 | ------ | ---------- | -------------------------------- | ----------------------- | ----- |
 | [ ]    | D05 T02 §5 | First captures from a real drive | optical-drive, operator | 5     |
 
-Progress: 0/61 verified sections, 5 ready to run now.
+Progress: 0/78 verified sections, 5 ready to run now.
 
-Checklist: 0/385 items completed (includes Commit items).
+Checklist: 0/487 items completed (includes Commit items).

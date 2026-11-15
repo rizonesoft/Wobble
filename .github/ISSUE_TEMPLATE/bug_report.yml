@@ -1,0 +1,44 @@
+name: Bug report
+description: The emulated drive answered wrongly, Windows rejected it, or Wobble crashed.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected and what Wobble did instead.
+    validations:
+      required: true
+  - type: input
+    id: software
+    attributes:
+      label: Software talking to the drive
+      description: The program and version, or "Windows itself", "IMAPI2", "my own SPTI code".
+    validations:
+      required: true
+  - type: input
+    id: media
+    attributes:
+      label: Disc in the drive
+      description: The kind of image or media, for example "ISO as DVD", "cue sheet with 1 data and 3 audio tracks", "none".
+    validations:
+      required: true
+  - type: textarea
+    id: trace
+    attributes:
+      label: Command trace
+      description: The output of GET http://127.0.0.1:3261/trace around the failure. The CDB, status and sense of the failing command matter most.
+      render: json
+  - type: input
+    id: version
+    attributes:
+      label: Wobble commit or version
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      description: For example Windows 11 24H2, or Ubuntu 24.04 for the emulator with Windows attached from another machine.
+    validations:
+      required: true

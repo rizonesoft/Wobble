@@ -13,6 +13,8 @@ Date: 2026-11-15. Status: agreed starting point. Builds on [the iSCSI proof](../
 | Profile format | JSON files, with captured drive answers stored as hex strings. |
 | Fault injection | Declarative rule lists (JSON), loaded per test through the control API. |
 | Test control | A local HTTP JSON control API, wrapped by a `Wobble.Testing` library for xUnit. |
+| Interface | `Wobble.App`, an Avalonia desktop app for Windows and Linux, a client of the control API. Specified in [design/SPEC.md](../../design/SPEC.md); decided 2026-11-15. |
+| Licence | GPL-3.0, decided 2026-11-15. |
 
 ## Transport: why a built-in iSCSI target
 
@@ -44,6 +46,7 @@ A Storport miniport bridge or a USB gadget front end would call the same interfa
 | `Wobble.Iscsi` | The iSCSI target. |
 | `Wobble.Host` (`wobble`) | The executable: loads profiles, hosts the target and the control API. |
 | `Wobble.Capture` (`wobble-capture`) | Windows tool: queries a real drive over SPTI, writes a drive or media profile, and records command traces. |
+| `Wobble.App` (`Wobble`) | The control app: disc, live command trace and fault rules, over the control API. |
 | `Wobble.Testing` | Test library: starts the emulator, attaches the Windows initiator, finds the drive, calls the control API. |
 | `tests/*` | Unit tests of byte-exact responses; end-to-end tests on Windows through SPTI and IMAPI2. |
 

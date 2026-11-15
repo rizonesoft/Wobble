@@ -12,6 +12,7 @@
 | 04-faults | [TODO-01-fault-injection.md](./04-faults/TODO-01-fault-injection.md) | Fault Injection |
 | 05-profiles | [TODO-01-profiles.md](./05-profiles/TODO-01-profiles.md) | Drive and Media Profiles |
 | 05-profiles | [TODO-02-capture.md](./05-profiles/TODO-02-capture.md) | The Capture Tool |
+| 06-interface | [TODO-01-control-app.md](./06-interface/TODO-01-control-app.md) | The Wobble Control App |
 | 07-release | [TODO-01-packaging-and-docs.md](./07-release/TODO-01-packaging-and-docs.md) | Packaging, Releases and Documentation |
 
 ## Completed TODOs

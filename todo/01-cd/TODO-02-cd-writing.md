@@ -108,7 +108,7 @@ Burning software decides what it may do from GET CONFIGURATION. The drive must l
 
 - [ ] Add profiles `000Ah` and `0009h` to the profile list feature, each current only for its media, in `Features()`. Done when: a test reads the list with a blank CD-R and sees `0009h` current.
 - [ ] Add feature `0021h` (incremental streaming writable), `002Dh` (CD track at once, with test write, CD-RW, raw subchannel and data type support bits) and `002Eh` (CD mastering: SAO, raw, raw multi-session, test write, maximum cue sheet length) per MMC-5 5.3. Done when: the payload bytes match a hand-built expectation.
-- [ ] Add feature `0037h` (CD-RW media write support) current with CD-RW media. Done when: tested.
+- [ ] Add feature `0037h` (CD-RW media write support) current with CD-RW media. Done when: a test in `WriterFeatures` asserts it and fails when the behaviour is removed.
 - [ ] Set the current profile in the GET CONFIGURATION header from the loaded media. Done when: bytes 6 and 7 read `0009h` with a blank CD-R.
 - [ ] Update mode page `2Ah` in `ModePages()` to set the CD-R and CD-RW write bits and the write speed fields. Done when: byte 3 reads `03h`.
 - [ ] Commit: `core: report CD writer profiles and features`
@@ -133,7 +133,7 @@ Before writing, software reads the ATIP, the disc status and the next writable a
 - [ ] Report the last session lead-in start and last possible lead-out start in bytes 16 to 23. Done when: a blank disc reports the ATIP values instead of `FFFFFFFFh`.
 - [ ] Answer READ TRACK INFORMATION for the invisible track (track number `FFh`, or the first unwritten track) with the blank bit, NWA valid, the next writable address and free blocks. Done when: a blank disc reports NWA 0 and its capacity free.
 - [ ] Report damage, reserved and packet bits and the track's data mode for a partly written track in `OpticalDrive.ReadTrackInformation`. Done when: a test that writes 100 sectors track at once reads NWA 100.
-- [ ] Make READ CAPACITY on a blank disc return last LBA 0 with block size 2048, and READ TOC format 0 on a blank disc fail with `05/24/00`. Done when: both are tested against the MMC text.
+- [ ] Make READ CAPACITY on a blank disc return last LBA 0 with block size 2048, and READ TOC format 0 on a blank disc fail with `05/24/00`. Done when: a test in `WritableInfoTests` proves it against the MMC text.
 - [ ] Add `tests/Wobble.Tests/WritableInfoTests.cs`. Done when: it passes and fails when the status byte is forced to `0Eh`.
 - [ ] Commit: `core: answer ATIP, disc and track information for writable CDs`
 
@@ -155,7 +155,7 @@ Every write type is chosen through mode page `05h`. Wobble has no such page and 
 - [ ] Add `WriteParameters` (write type, test write, track mode, data block type, multi-session field, session format, packet size, pause length, MCN, ISRC) in `src/Wobble.Core/WriteParameters.cs` with `Parse` and `ToPage`. Done when: a round trip of the 52-byte page is byte-identical.
 - [ ] Return page `05h` from `ModePages()` with its changeable mask. Done when: MODE SENSE (10) page control 1 shows the changeable bits set.
 - [ ] Parse the mode parameter header and each page in `OpticalDrive.ModeSelect`, for both the 6 and 10 byte commands, requiring the PF bit. Done when: a list shorter than its header is refused with `05/1A/00`.
-- [ ] Refuse write type above 3, a data block type the write type does not allow (MMC-5 table 669), and a change to a field that is not changeable, with `05/26/00`. Done when: each refusal is tested. Cheaper substitute: storing whatever arrives, which lets a later WRITE run under settings no drive would accept.
+- [ ] Refuse write type above 3, a data block type the write type does not allow (MMC-5 table 669), and a change to a field that is not changeable, with `05/26/00`. Done when: a test in `WriteParameters` proves it. Cheaper substitute: storing whatever arrives, which lets a later WRITE run under settings no drive would accept.
 - [ ] Reset the page to its default on `OpticalDrive.Reset` and on media change. Done when: a test changes the page, swaps the disc and reads the default back.
 - [ ] Remove the MODE SELECT limit from `README.md`. Done when: the Limits list no longer says it changes nothing.
 - [ ] Commit: `core: add the write parameters page and a real MODE SELECT`
@@ -176,12 +176,12 @@ Track at once is the simplest write type and the one IMAPI2 uses on CD. It defin
 2. Add CLOSE TRACK SESSION and RESERVE TRACK. Done when: closing the session yields a TOC and the state the multi-session field asks for.
 
 - [ ] Dispatch `2Ah` and `AAh` to `OpticalDrive.Write` in `src/Wobble.Core/OpticalDrive.cs`, taking the block size from the data block type (2048, 2336, 2352, 2368 or 2448). Done when: a data length that is not blocks times that size is refused with `05/24/00`.
-- [ ] Refuse a write to media that is not writable with `05/30/05`, to an address that is not the NWA with `05/21/02`, and beyond capacity with `05/21/00`. Done when: each is tested.
+- [ ] Refuse a write to media that is not writable with `05/30/05`, to an address that is not the NWA with `05/21/02`, and beyond capacity with `05/21/00`. Done when: a test in `TrackAtOnceTests` proves it.
 - [ ] Encode cooked blocks into raw sectors with `SectorCodec` and synthesise P and Q subchannel as they are stored. Done when: READ CD of a written Mode 1 sector returns valid EDC and ECC.
 - [ ] Add, in `OpticalDrive.Write.cs`, the run-out, link and run-in blocks after a closed track and the 150 frame pregap before the next (7 blocks of link area, MMC-3 4.2.3.8). Done when: the second track's NWA is the first track's end plus 152.
 - [ ] Implement CLOSE TRACK SESSION (`5Bh`) functions 1 (track) and 2 (session) in `OpticalDrive.Write.cs`, writing the lead-in TOC and lead-out, and leaving the disc appendable or complete by the multi-session field. Done when: after function 2 READ TOC lists the tracks.
-- [ ] Refuse closing a session with an open track that is too short (under 300 blocks) with `05/72/03`, and implement RESERVE TRACK (`53h`). Done when: both are tested.
-- [ ] Treat SYNCHRONIZE CACHE (`35h`) as a flush of the store and report `02/04/08` (long write in progress) to TEST UNIT READY only while a delayed close is pending under an injected clock. Done when: tested with a fake `TimeProvider`.
+- [ ] Refuse closing a session with an open track that is too short (under 300 blocks) with `05/72/03`, and implement RESERVE TRACK (`53h`). Done when: a test in `TrackAtOnceTests` proves it.
+- [ ] Treat SYNCHRONIZE CACHE (`35h`) as a flush of the store and report `02/04/08` (long write in progress) to TEST UNIT READY only while a delayed close is pending under an injected clock. Done when: a test in `TrackAtOnceTests` proves it with a fake `TimeProvider`.
 - [ ] Add `tests/Wobble.Tests/TrackAtOnceTests.cs` burning two tracks and one session and reading them back. Done when: it passes and fails if the link blocks are dropped.
 - [ ] Commit: `core: write CDs track at once`
 
@@ -201,7 +201,7 @@ CarbonCD writes cue sheet discs session at once: it sends the layout first with 
 2. Write under it in `OpticalDrive.Write.cs`. Done when: a stream starting at LBA -150 produces a complete disc whose TOC matches the sheet.
 
 - [ ] Add `CueSheetCommand.Parse(ReadOnlySpan<byte>)` reading each entry's control and ADR, track, index, data form, SCMS and MSF (MMC-5 6.33). Done when: a test parses a five-entry sheet into one data and one audio track.
-- [ ] Refuse a sheet whose length is not a multiple of 8, whose first entry is not the lead-in, whose times do not rise, or that arrives while write type is not session at once, with `05/26/00` or `05/2C/00`. Done when: each refusal is tested.
+- [ ] Refuse a sheet whose length is not a multiple of 8, whose first entry is not the lead-in, whose times do not rise, or that arrives while write type is not session at once, with `05/26/00` or `05/2C/00`. Done when: a test in `SessionAtOnceTests` proves it.
 - [ ] Accept WRITE (10) from the first address of the sheet and require each write to follow the last. Done when: a write out of sequence is refused with `05/21/02`.
 - [ ] Take the block size per region from the entry's data form (`00h` audio 2352, `10h` Mode 1 2048, `11h` Mode 1 2352 and the Mode 2 forms) and store subchannel synthesised from the sheet. Done when: Q read back in a pregap counts down at index 0.
 - [ ] Complete the disc in `OpticalDrive.Write.cs` when the address before the lead-out has been written and the cache is synchronised: generate lead-in and lead-out and set the state from the multi-session field. Done when: READ DISC INFORMATION reads complete.
@@ -247,10 +247,10 @@ Around the writes, burners poll the buffer, set the speed, calibrate power and r
 2. Carry write speed through SET CD SPEED, GET PERFORMANCE and page `2Ah`. Done when: a set speed is read back from all three.
 
 - [ ] Answer READ BUFFER CAPACITY (`5Ch`) with a 12-byte block: buffer length and blank length from a modelled 2 MiB buffer that drains at the write speed under the injected clock. Done when: a test with a fake clock sees the blank length fall after a write and recover later.
-- [ ] Accept SEND OPC INFORMATION (`54h`) with DoOpc set on writable media, and refuse it on pressed media with `05/30/05`. Done when: both are tested.
+- [ ] Accept SEND OPC INFORMATION (`54h`) with DoOpc set on writable media, and refuse it on pressed media with `05/30/05`. Done when: a test in `WriteSupportTests` proves it.
 - [ ] Accept REZERO UNIT (`01h`) and reset the current position. Done when: READ SUB-CHANNEL then reports address 0.
 - [ ] Store the write speed from SET CD SPEED bytes 4 and 5, clamped to the media's speeds, and report it in mode page `2Ah` and in GET PERFORMANCE type 3 write speed descriptors. Done when: a set speed of 4 234 kB/s reads back from both.
-- [ ] Implement VERIFY (10) (`2Fh`) over written data, failing with `03/11/00` only where a sector was never written. Done when: tested on a partly written track.
+- [ ] Implement VERIFY (10) (`2Fh`) over written data, failing with `03/11/00` only where a sector was never written. Done when: a test in `WriteSupportTests` proves it on a partly written track.
 - [ ] Add `tests/Wobble.Tests/WriteSupportTests.cs`. Done when: it passes and fails if the buffer never drains.
 - [ ] Commit: `core: add buffer capacity, OPC, rezero and write speeds`
 
@@ -270,7 +270,7 @@ After a burn the software verifies. Reads must come from the sector store, and m
 2. Fail unwritten addresses. Done when: a read of an unwritten sector fails with `03/11/00` and a read beyond the last track with `05/21/00`.
 
 - [ ] Read sectors and stored subchannel from `SectorStore` in `Media.ReadRaw` when the media is writable. Done when: READ CD with subchannel selection 1 returns the 96 bytes that were written.
-- [ ] Return `03/11/00` for a sector inside a track that was reserved and never written, and `05/21/00` for an address beyond the last track of an appendable disc. Done when: both are tested.
+- [ ] Return `03/11/00` for a sector inside a track that was reserved and never written, and `05/21/00` for an address beyond the last track of an appendable disc. Done when: a test in `ReadBack` proves it.
 - [ ] Allow reads of closed tracks through `Media.ReadRaw` while the disc is still appendable. Done when: a test reads track 1 before the session is closed.
 - [ ] Add the cases to `tests/Wobble.Tests/TrackAtOnceTests.cs` and `RawWriteTests.cs`. Done when: they pass and fail if reads still go to the empty extent list.
 - [ ] Commit: `core: read back written discs from the sector store`
@@ -292,9 +292,9 @@ A rewritable disc is reused. BLANK (`A1h`) is the undo of a burn and the first t
 
 - [ ] Implement blanking type 0 and 1: clear the store and return the disc to `DiscState.Blank` with its ATIP kept. Done when: READ DISC INFORMATION reads blank and READ TOC is refused after it.
 - [ ] Implement type 5 (unclose the last session) in `OpticalDrive.Blank`: remove its lead-out and lead-in and make the disc appendable. Done when: the NWA is the end of the last track.
-- [ ] Implement type 6 (erase the last session) and refuse types 2, 3 and 4 with `05/24/00`. Done when: tested.
-- [ ] Refuse BLANK on CD-R, pressed CD and DVD media with `05/30/05`, and with no disc with `02/3A/01`. Done when: tested.
-- [ ] Honour the Immed bit: with it set return at once and report `02/04/07` to TEST UNIT READY until the modelled erase time has passed on the injected clock. Done when: tested with a fake clock.
+- [ ] Implement type 6 (erase the last session) and refuse types 2, 3 and 4 with `05/24/00`. Done when: a test in `BlankTests` asserts it and fails when the behaviour is removed.
+- [ ] Refuse BLANK on CD-R, pressed CD and DVD media with `05/30/05`, and with no disc with `02/3A/01`. Done when: a test in `BlankTests` asserts it and fails when the behaviour is removed.
+- [ ] Honour the Immed bit: with it set return at once and report `02/04/07` to TEST UNIT READY until the modelled erase time has passed on the injected clock. Done when: a test in `BlankTests` proves it with a fake clock.
 - [ ] Add `tests/Wobble.Tests/BlankTests.cs`. Done when: it passes and fails if the store is not cleared.
 - [ ] Commit: `core: blank CD-RW media`
 
@@ -317,7 +317,7 @@ The plan keeps written discs as CCD/IMG/SUB so a test can inspect or reload them
 - [ ] Write the three files to temporary names and rename them into place. Done when: a test that fails the write half way leaves no `.ccd` behind. Cheaper substitute: writing in place, which can leave a `.ccd` pointing at a short `.img`.
 - [ ] Parse the `.ccd` and build a multi-session `Media` over the `.img` and `.sub` in `CloneCdImage.Load`, refusing a missing `.img`, an entry count that does not match `TocEntries`, and a `.sub` of the wrong length. Done when: each refusal names the file.
 - [ ] Open `.ccd` in `Media.Open`. Done when: `wobble --image disc.ccd` serves it.
-- [ ] Add `POST /media/save {"path": "<folder>/<name>"}` in `src/Wobble.Host/Program.cs` and `SaveMediaAsync` in `WobbleControl`, refusing when there is no disc or the disc is blank with 409. Done when: tested through the control API.
+- [ ] Add `POST /media/save {"path": "<folder>/<name>"}` in `src/Wobble.Host/Program.cs` and `SaveMediaAsync` in `WobbleControl`, refusing when there is no disc or the disc is blank with 409. Done when: a test in `CloneCdImageTests` proves it through the control API.
 - [ ] Add `tests/Wobble.Tests/CloneCdImageTests.cs` with a save and load round trip of a raw burn. Done when: it passes and fails if the `.sub` is written interleaved.
 - [ ] Commit: `core: save and load CloneCD images`
 

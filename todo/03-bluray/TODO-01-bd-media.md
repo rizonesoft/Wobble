@@ -49,10 +49,10 @@ Reading comes first: a BD-ROM is a large 2048-byte block image with its own prof
 1. Add `BdRom` to `MediaKind` and the choice by size or option. Done when: an image above 8.5 GB, or `--media bd`, becomes a BD-ROM.
 2. Answer the BD read feature and disc structure. Done when: Windows lists profile `0040h`.
 
-- [ ] Add `MediaKind.BdRom` with profile `0040h` and choose it in `Media.FromImage` for images above 4 173 824 blocks, with `bd` accepted by `--media` and by `PUT /media` `kind`. Done when: tested with a sparse 9 GB file.
-- [ ] Add feature `0040h` (BD read, with the class bitmaps for BD-RE, BD-R and BD-ROM) and the BD profiles to the profile list. Done when: tested against MMC-6 5.3.28.
+- [ ] Add `MediaKind.BdRom` with profile `0040h` and choose it in `Media.FromImage` for images above 4 173 824 blocks, with `bd` accepted by `--media` and by `PUT /media` `kind`. Done when: a test in `BdReadTests` proves it with a sparse 9 GB file.
+- [ ] Add feature `0040h` (BD read, with the class bitmaps for BD-RE, BD-R and BD-ROM) and the BD profiles to the profile list. Done when: a test in `BdReadTests` proves it against MMC-6 5.3.28.
 - [ ] Answer READ DISC STRUCTURE with media type 1 (BD) format `00h` (disc information: `DI`, disc type identifier `BDO`, layers, channel bit length). Done when: a test decodes the identifier.
-- [ ] Report 1x BD speed as 4 495 kB/s in `MaxReadSpeedKbps`, mode page `2Ah` and GET PERFORMANCE. Done when: tested.
+- [ ] Report 1x BD speed as 4 495 kB/s in `MaxReadSpeedKbps`, mode page `2Ah` and GET PERFORMANCE. Done when: a test in `BdReadTests` asserts it and fails when the behaviour is removed.
 - [ ] Use READ (12) (`A8h`) and READ CAPACITY correctly beyond 4 GiB of blocks. Done when: a read at block 4 000 000 returns the image's bytes.
 - [ ] Add `tests/Wobble.Tests/BdReadTests.cs`. Done when: it passes and fails if the media type field of READ DISC STRUCTURE is ignored.
 - [ ] Commit: `core: read BD-ROM media`
@@ -73,9 +73,9 @@ BD-R in sequential recording mode behaves like DVD+R with larger numbers: tracks
 2. Report BD write capability. Done when: feature `0041h` is current with BD-R loaded.
 
 - [ ] Add `MediaKind.BdR` (profile `0041h`) with capacities 12 219 392 (25 GB) and 24 438 784 (50 GB) accepted by `PUT /media` `blank` as `bd-r` and `bd-r-dl`. Done when: `GET /status` reports them.
-- [ ] Add feature `0041h` (BD write) and mark `0021h` current for BD-R. Done when: tested.
+- [ ] Add feature `0041h` (BD write) and mark `0021h` current for BD-R. Done when: a test in `BdRTests` asserts it and fails when the behaviour is removed.
 - [ ] Write sequentially at the NWA with WRITE (10) and WRITE (12), with RESERVE TRACK, READ TRACK INFORMATION and CLOSE TRACK SESSION functions 1, 2 and 6. Done when: a finalised BD-R refuses further writes with `05/30/05`.
-- [ ] Answer READ FORMAT CAPACITIES for blank BD-R with types `00h` and `32h`, accept FORMAT UNIT type `00h` as sequential mode without spares, and refuse `32h` (pseudo overwrite) with `05/26/00`. Done when: tested, and `README.md` Limits says pseudo overwrite is not offered.
+- [ ] Answer READ FORMAT CAPACITIES for blank BD-R with types `00h` and `32h`, accept FORMAT UNIT type `00h` as sequential mode without spares, and refuse `32h` (pseudo overwrite) with `05/26/00`. Done when: a test in `BdRTests` proves it, and `README.md` Limits says pseudo overwrite is not offered.
 - [ ] Add `tests/Wobble.Tests/BdRTests.cs`. Done when: it passes and fails if the NWA does not advance.
 - [ ] Commit: `core: write BD-R in sequential recording mode`
 
@@ -94,9 +94,9 @@ BD-RE is formatted once and then written anywhere, like DVD+RW without the backg
 1. Add `BdRe` media with FORMAT UNIT types `30h` and `31h`. Done when: a formatted disc reports its capacity.
 2. Write at random. Done when: writes anywhere read back and a reformat empties the disc.
 
-- [ ] Add `MediaKind.BdRe` (profile `0043h`), accepted as `bd-re` and `bd-re-dl`. Done when: tested.
+- [ ] Add `MediaKind.BdRe` (profile `0043h`), accepted as `bd-re` and `bd-re-dl`. Done when: a test in `BdReTests` asserts it and fails when the behaviour is removed.
 - [ ] List format types `00h`, `30h` (with spare areas) and `31h` (without) in READ FORMAT CAPACITIES and accept them in FORMAT UNIT, reducing the capacity by the spare size for `30h`. Done when: the formatted capacity differs between the two types as MMC-6 says.
-- [ ] Write at any address of a formatted BD-RE and refuse writes to an unformatted one with `05/30/10`. Done when: tested.
+- [ ] Write at any address of a formatted BD-RE and refuse writes to an unformatted one with `05/30/10`. Done when: a test in `BdReTests` asserts it and fails when the behaviour is removed.
 - [ ] Clear the disc on a new FORMAT UNIT in `OpticalDrive.Format.cs`. Done when: previously written blocks read as zeros. Cheaper substitute: keeping old data after a reformat.
 - [ ] Answer READ DISC STRUCTURE BD formats `09h` (cartridge status: none) and `0Ah` (spare area information). Done when: free spare blocks are reported for a `30h` format.
 - [ ] Add `tests/Wobble.Tests/BdReTests.cs`. Done when: it passes and fails if spares are not subtracted.

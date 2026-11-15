@@ -1,0 +1,23 @@
+name: Feature request
+description: A command, media type, fault or control Wobble should have.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: What are you trying to test
+      description: The software and the situation you want to put it in.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What Wobble should do
+      description: The command, media, fault or interface change. Name the MMC or SPC clause if you know it.
+    validations:
+      required: true
+  - type: textarea
+    id: plan
+    attributes:
+      label: Is it already planned
+      description: Check todo/implementation-plan.md. If a section covers it, name it (for example D01 T02 §6) and say what is missing.
