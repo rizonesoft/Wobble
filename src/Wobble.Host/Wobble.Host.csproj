@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Wobble.Core\Wobble.Core.csproj" />
+    <ProjectReference Include="..\Wobble.Iscsi\Wobble.Iscsi.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>wobble</AssemblyName>
+    <RootNamespace>Wobble.Host</RootNamespace>
+  </PropertyGroup>
+
+</Project>

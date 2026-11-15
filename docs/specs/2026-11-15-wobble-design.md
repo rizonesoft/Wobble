@@ -28,9 +28,9 @@ The core never sees iSCSI. The seam is one interface:
 ```csharp
 public interface IScsiDevice
 {
-    ScsiResult Execute(ReadOnlySpan<byte> cdb, ReadOnlySpan<byte> dataOut, int allocationLength);
+    ScsiResult Execute(ReadOnlySpan<byte> cdb, ReadOnlySpan<byte> dataOut);
 }
-// ScsiResult: status byte, sense data, data-in bytes.
+// ScsiResult: status byte, sense data, data-in bytes. Allocation lengths are read from the CDB.
 ```
 
 A Storport miniport bridge or a USB gadget front end would call the same interface.
@@ -112,10 +112,11 @@ A Windows end-to-end test uses `Wobble.Testing`: start `wobble` as a child proce
 2. **Write support.** Blank and rewritable media, write modes, track and session state, close and finalise, IMAPI2 burn end to end, fault injection on the write path.
 3. **Profiles and capture.** `wobble-capture`, real drive and media profiles, trace recording and comparison, quirks.
 
-## To verify during step 1
+## Verified during step 1 (2026-11-15)
 
-- The Windows initiator attaches to a target running on the same Windows host over loopback. If it does not, the emulator runs in WSL from the same checkout, as in the proof.
-- Whether `Connect-IscsiTarget` works without elevation once `MSiSCSI` is running. The proof ran it elevated.
+- The Windows initiator attaches over loopback to a target running on the same Windows host. Wobble runs natively on Windows; WSL is not involved.
+- Managing the initiator needs elevation: disconnecting a target and removing a portal fail with "Access is denied" from an ordinary PowerShell, and the connection was made elevated. So `tools/attach.ps1` is run elevated once per boot. After that the initiator reconnects by itself whenever the same target name is back on the same port (about 15 seconds), so tests start and stop the emulator freely with no elevation.
+- The core, the target and the unit tests also build and pass on Linux. WSL here has the .NET 10 SDK, so that check used a copy retargeted to `net10.0`; building the repository as is in WSL needs the .NET 11 SDK there.
 
 ## Out of scope
 

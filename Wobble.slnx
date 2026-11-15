@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Wobble.Core/Wobble.Core.csproj" />
+    <Project Path="src/Wobble.Host/Wobble.Host.csproj" />
+    <Project Path="src/Wobble.Iscsi/Wobble.Iscsi.csproj" />
+    <Project Path="src/Wobble.Testing/Wobble.Testing.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Wobble.EndToEnd/Wobble.EndToEnd.csproj" />
+    <Project Path="tests/Wobble.Tests/Wobble.Tests.csproj" />
+  </Folder>
+</Solution>
