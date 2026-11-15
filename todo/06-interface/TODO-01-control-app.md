@@ -89,11 +89,12 @@ The shell every later section fills: the project, the theme tokens from the spec
 1. Create `src/Wobble.App` (Avalonia, MVVM with CommunityToolkit.Mvvm) and `tests/Wobble.App.Tests` (Avalonia.Headless.XUnit). Done when: the window opens and a headless test finds its three columns.
 2. Put every colour, font and radius of the specification's Look section in `src/Wobble.App/Theme/Groove.axaml`. Done when: no view holds a literal colour.
 
-- [ ] Create `src/Wobble.App/Wobble.App.csproj` (assembly `Wobble`, `WinExe`, `ApplicationIcon` `assets/brand/wobble.ico`) on the current stable Avalonia, and add it and `tests/Wobble.App.Tests` to `Wobble.slnx`. Done when: `dotnet build Wobble.slnx` builds both.
+- [ ] Create `src/Wobble.App/Wobble.App.csproj` (assembly `WobbleApp`, so it never collides with the host's `wobble.exe` on a case-insensitive file system, `WinExe`, `ApplicationIcon` `assets/brand/wobble.ico`) on the current stable Avalonia, and add it and `tests/Wobble.App.Tests` to `Wobble.slnx`. Done when: `dotnet build Wobble.slnx` builds both.
 - [ ] Define the tokens of `design/SPEC.md` Look as resources in `src/Wobble.App/Theme/Groove.axaml`, with the spectrum gradient as one brush. Done when: a test reads each resource and compares its value with the specification's table.
 - [ ] Embed Sora, IBM Plex Sans and IBM Plex Mono under `src/Wobble.App/Assets/Fonts/` with their OFL texts, and register them as `FontFamily` resources. Done when: a headless test measures a text block and its typeface is Sora.
-- [ ] Build `MainWindow.axaml` with the title bar, the Disc, Trace and Faults columns (300, fill, 250) and the status bar, each an empty named region, minimum size 1100 by 640. Done when: the headless test finds the five regions by automation id.
+- [ ] Build `MainWindow.axaml` with the title bar, the Disc, Trace and Faults columns (300, fill, 250) and the status bar, each an empty named region, minimum size 900 by 600. Done when: the headless test finds the five regions by automation id.
 - [ ] Collapse the Faults column into a title bar button and side sheet below 1100 wide in `src/Wobble.App/Views/MainWindow.axaml`. Done when: a headless test resizes the window to 1000 and finds the button.
+- [ ] Run `tests/Wobble.App.Tests` in the `unit tests` step of `scripts/check.ps1`, leaving out tests with the trait `Category=EndToEnd`, and run those in its `-EndToEnd` step. Done when: a failing headless test makes `pwsh scripts/check.ps1` exit 1. Cheaper substitute: a test project the gate and CI never run.
 - [ ] Add a rule to `.editorconfig` or an analyzer test in `tests/Wobble.App.Tests/ThemeTests.cs` that fails when a `.axaml` view under `src/Wobble.App/Views` holds a `#` colour literal. Done when: adding `Background="#fff"` to a view fails the test. Cheaper substitute: literal colours in views, which drift from the tokens.
 - [ ] Commit: `app: add the Avalonia shell with the Groove theme`
 
@@ -305,7 +306,7 @@ A rule has a dozen possible fields and most combinations are wrong. The editor s
 
 - [ ] Build the opcode picker as a searchable list from `src/Wobble.Core/Opcodes.cs`. Done when: typing `wri` lists the WRITE opcodes.
 - [ ] Build the trigger fields (LBA from and to, nth, after blocks written, at emulator time), each optional in `src/Wobble.App/Views/FaultRuleDialog.axaml`. Done when: a rule with only an opcode saves.
-- [ ] Build the action picker (sense, delay, buffer underrun, eject, swap media, not ready, drop connection) showing only the chosen action's parameters, with sense entered as `KK/AA/QQ` or picked from the named list in `SenseText`. Done when: a test in `FaultEditorTests` proves it.
+- [ ] Build the actions as a set of switches (sense, delay, buffer underrun, eject, swap media, not ready, drop connection), any of which may be combined as the design's `do` object allows, each showing its parameters when on, with sense entered as `KK/AA/QQ` or picked from the named list in `SenseText`. Done when: a test in `FaultEditorTests` proves it alone, and the design's fourth example (the 200th WRITE delayed 4 000 ms with a buffer underrun) is entered through the editor and reaches the emulator as one rule.
 - [ ] Validate through `FaultScript.Parse` on the rule as edited, showing each message at its field. Done when: `lbaFrom` above `lbaTo` disables `Save` and names both fields. Cheaper substitute: validation rules written a second time in the app.
 - [ ] Implement F1 and Ctrl+N in `src/Wobble.App/Views/FaultRuleDialog.axaml`. Done when: a headless test adds a rule and the emulator reports it.
 - [ ] Commit: `app: add the fault rule editor`
@@ -379,7 +380,7 @@ The app sits beside the software under test for hours. The tray icon says what t
 1. Render the tray icons from `assets/icons/tray-*.svg`. Done when: four `.ico` files are embedded.
 2. Add the tray icon and menu. Done when: the state follows the drive and the menu's four actions work.
 
-- [ ] Add `scripts/build-tray-icons.ps1` rendering `assets/icons/tray-*.svg` to `src/Wobble.App/Assets/tray-*.ico` with `scripts/campaign-icon.py frames`, and commit the renders. Done when: the four files exist with 16 to 48 pixel frames.
+- [ ] Add `scripts/build-tray-icons.ps1` that draws each `assets/icons/tray-*.svg` to a 1024 pixel PNG in headless Chrome or Edge with a transparent background (the method `assets/brand/README.md` records), then makes `src/Wobble.App/Assets/tray-*.ico` from the PNG with `scripts/campaign-icon.py frames`, and commit the renders. Done when: the four files exist with 16 to 48 pixel frames.
 - [ ] Add a `TrayIcon` whose icon follows the activity: idle, reading, writing, and fault for 10 seconds after a rule fires. Done when: a test with a fake clock sees each state.
 - [ ] Add the menu: Open Wobble, Insert image, Eject, Quit in `src/Wobble.App/Services/TrayService.cs`. Done when: a test in `TrayTests` proves it through its command.
 - [ ] Implement G6: closing the window hides it to the tray when on, and quits the app and the emulator when off in `src/Wobble.App/Services/TrayService.cs`. Done when: a test in `TrayTests` proves it.
@@ -451,7 +452,7 @@ The whole product in one test: Windows burns a disc through the emulator the app
 1. Add `tests/Wobble.App.Tests/EndToEndTests.cs` running the app headless against its own emulator with the initiator attached. Done when: the test drives a burn from outside and reads the app's view models.
 2. Assert what the tester would see. Done when: the failed write, the fired rule and the tray state are all present.
 
-- [ ] Start the app's `EmulatorSession` on ports 3260 and 3261, insert a blank CD-R through the disc view model and add the write error rule through the fault editor's view model. Done when: `GET /faults` lists the rule.
+- [ ] Mark the class with the trait `Category=EndToEnd` and start the app's `EmulatorSession` on ports 3260 and 3261, insert a blank CD-R through the disc view model and add the write error rule through the fault editor's view model. Done when: `GET /faults` lists the rule.
 - [ ] Burn the mixed-mode fixture from the test through `ScsiDrive`. Done when: the write over LBA 120 000 fails.
 - [ ] Assert the trace view model has the failed row with rule 1, the rule card reads `fired 1 of 1`, the state pill passed through `Writing`, and the tray state was `fault`. Done when: all four hold.
 - [ ] Export the trace through T5 and compare it with the emulator's own. Done when: `wobble trace diff` reports no difference.
@@ -469,7 +470,7 @@ The published archive should start with the app, not a console. The app joins th
 
 **Build order:**
 
-1. Extend `scripts/publish.ps1`. Done when: the archives hold `Wobble.exe` (or `Wobble` on Linux) beside `wobble`.
+1. Extend `scripts/publish.ps1`. Done when: the archives hold `WobbleApp.exe` (or `WobbleApp` on Linux) beside `wobble`.
 2. Start it from the archive. Done when: the unpacked app starts its emulator.
 
 - [ ] Publish `src/Wobble.App` self-contained for `win-x64` and `linux-x64` into the same folder as `wobble` in `scripts/publish.ps1`. Done when: the archive lists both executables.
@@ -478,7 +479,7 @@ The published archive should start with the app, not a console. The app joins th
 - [ ] Describe the app in `README.md` and `docs/guide/01-install-and-attach.md`. Done when: both start from the app.
 - [ ] Commit: `build: ship the app in the downloads`
 
-**Test checkpoint:** `pwsh scripts/publish.ps1` exits 0 and `artifacts/wobble-0.1.0-win-x64/Wobble.exe --smoke` exits 0.
+**Test checkpoint:** `pwsh scripts/publish.ps1` exits 0 and `artifacts/wobble-0.1.0-win-x64/WobbleApp.exe --smoke` exits 0.
 
 ## Verification
 
